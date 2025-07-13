@@ -89,25 +89,6 @@ function updateProgress(percent) {
   }
 }
 
-// Load data saat halaman ready
-document.addEventListener('DOMContentLoaded', () => {
-  const apiUrl = 'https://mangadb.paukuman.workers.dev/anime?q=testing&page=episode';
-  
-  fetchWithProgress(apiUrl, updateProgress)
-    .then(data => {
-      renderContent(data);
-    })
-    .catch(error => {
-      document.getElementById('content-container').innerHTML = `
-        <div class="text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
-          Error loading data: ${error.message}
-        </div>
-      `;
-      document.getElementById('skeleton-container').classList.add('hidden');
-      document.getElementById('progress-container').classList.add('hidden');
-    });
-});
-
 // Fungsi untuk render content (contoh)
 function renderContent(data) {
   const container = document.getElementById('content-container');
@@ -151,3 +132,19 @@ function renderContent(data) {
     container.appendChild(entryElement);
   });
 }
+
+ const apiUrl = 'https://mangadb.paukuman.workers.dev/anime?q=testing&page=episode';
+  
+  fetchWithProgress(apiUrl, updateProgress)
+    .then(data => {
+      renderContent(data);
+    })
+    .catch(error => {
+      document.getElementById('content-container').innerHTML = `
+        <div class="text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
+          Error loading data: ${error.message}
+        </div>
+      `;
+      document.getElementById('skeleton-container').classList.add('hidden');
+      document.getElementById('progress-container').classList.add('hidden');
+    });
