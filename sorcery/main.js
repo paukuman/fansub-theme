@@ -1,16 +1,33 @@
 class FetchProgress {
   constructor(apiUrl) {
-    this.apiUrl = apiUrl;
+    // Get blogID from meta tag
+    const blogIDMeta = document.querySelector('meta[name="blogID"]');
+    this.blogID = blogIDMeta ? blogIDMeta.content : '';
+    
+    // Add blogID to API URL if it exists
+    this.apiUrl = this.blogID ? `${apiUrl}&blogID=${this.blogID}` : apiUrl;
+    
     this.controller = new AbortController();
     this.signal = this.controller.signal;
   }
 
   async fetchWithProgress(progressCallback) {
     try {
-      // Show progress and skeleton
-      document.getElementById('progress-container').classList.remove('hidden');
-      document.getElementById('skeleton-container').classList.remove('hidden');
-      document.getElementById('content-container').innerHTML = '';
+      // Check if required elements exist
+      const contentContainer = document.getElementById('content-container');
+      if (!contentContainer) {
+        console.error('Content container not found');
+        return;
+      }
+
+      // Show progress and skeleton if elements exist
+      const progressContainer = document.getElementById('progress-container');
+      const skeletonContainer = document.getElementById('skeleton-container');
+      
+      if (progressContainer) progressContainer.classList.remove('hidden');
+      if (skeletonContainer) skeletonContainer.classList.remove('hidden');
+      
+      contentContainer.innerHTML = '';
       
       const response = await fetch(this.apiUrl, { signal: this.signal });
       
@@ -69,9 +86,11 @@ class FetchProgress {
       
     } catch (error) {
       console.error('Fetch error:', error);
-      // Hide loading indicators on error
-      document.getElementById('skeleton-container').classList.add('hidden');
-      document.getElementById('progress-container').classList.add('hidden');
+      // Hide loading indicators on error if they exist
+      const skeletonContainer = document.getElementById('skeleton-container');
+      const progressContainer = document.getElementById('progress-container');
+      if (skeletonContainer) skeletonContainer.classList.add('hidden');
+      if (progressContainer) progressContainer.classList.add('hidden');
       throw error;
     }
   }
@@ -79,6 +98,8 @@ class FetchProgress {
   updateProgress(percent) {
     const progressBar = document.getElementById('progress-bar');
     const progressPercent = document.getElementById('progress-percent');
+    
+    if (!progressBar || !progressPercent) return;
     
     // Only update DOM if values changed
     if (progressBar.style.width !== `${percent}%`) {
@@ -88,14 +109,20 @@ class FetchProgress {
     
     if (percent === 100) {
       setTimeout(() => {
-        document.getElementById('skeleton-container').classList.add('hidden');
-        document.getElementById('progress-container').classList.add('hidden');
+        const skeletonContainer = document.getElementById('skeleton-container');
+        const progressContainer = document.getElementById('progress-container');
+        if (skeletonContainer) skeletonContainer.classList.add('hidden');
+        if (progressContainer) progressContainer.classList.add('hidden');
       }, 300);
     }
   }
 
   renderContent(data) {
     const container = document.getElementById('content-container');
+    if (!container) {
+      console.error('Content container not found for rendering');
+      return;
+    }
     
     // Handle empty or invalid data
     if (!data?.entries?.length) {
@@ -165,20 +192,31 @@ class FetchProgress {
   }
 
   async execute() {
+    // Check if content container exists before proceeding
+    if (!document.getElementById('content-container')) {
+      console.log('Content container not found, aborting fetch');
+      return;
+    }
+
     try {
       const data = await this.fetchWithProgress(this.updateProgress.bind(this));
       this.renderContent(data);
     } catch (error) {
       if (error.name !== 'AbortError') {
-        document.getElementById('content-container').innerHTML = `
-          <div class="text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
-            Error loading data: ${error.message}
-          </div>
-        `;
+        const contentContainer = document.getElementById('content-container');
+        if (contentContainer) {
+          contentContainer.innerHTML = `
+            <div class="text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
+              Error loading data: ${error.message}
+            </div>
+          `;
+        }
       }
     } finally {
-      document.getElementById('skeleton-container').classList.add('hidden');
-      document.getElementById('progress-container').classList.add('hidden');
+      const skeletonContainer = document.getElementById('skeleton-container');
+      const progressContainer = document.getElementById('progress-container');
+      if (skeletonContainer) skeletonContainer.classList.add('hidden');
+      if (progressContainer) progressContainer.classList.add('hidden');
     }
   }
 
