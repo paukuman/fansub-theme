@@ -105,21 +105,22 @@ function renderContent(data) {
     const entryElement = document.createElement('div');
     entryElement.className = 'flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors';
     entryElement.innerHTML = `
-    <a href="${entry.path}">
       <div class="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-        <div class="image-cover w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
-          <span class="text-xs font-bold">COVER</span>
-        </div>
+        <a href="${entry.path}">
+            <div class="image-cover w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
+                <span class="text-xs font-bold">COVER</span>
+            </div>
+        </a>
       </div>
       <div class="flex-1">
         <div class="flex justify-between items-start">
-          <div>
-            <h4 class="font-medium">${animeInfo?.title}</h4>
+          <a href="${entry.path}">
+            <h4 class="font-medium">${animeInfo?.title || "Untitled"}</h4>
             <div class="flex gap-2 mt-1">
               <span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">HD</span>
               <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">${entry.categories?.find(cat => cat.includes('page:')) || 'N/A'}</span>
             </div>
-          </div>
+          </a>
           <div class="flex gap-1 flex-wrap justify-end" style="max-width: 150px;">
             <span class="quality-badge quality-360p">360p</span>
             <span class="quality-badge quality-480p">480p</span>
@@ -128,7 +129,6 @@ function renderContent(data) {
         </div>
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">${entry.published?.relative || 'Posted recently'}</p>
       </div>
-      </a>
     `;
     
     container.appendChild(entryElement);
