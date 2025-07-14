@@ -106,7 +106,7 @@ function renderContent(data) {
     const entryElement = document.createElement('div');
     entryElement.className = 'flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors';
     entryElement.innerHTML = `
-      <div class="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+      <div class="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden block max-[374px]:hidden">
         <a href="${entry.path}">
             <div class="image-cover w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
                 <span class="text-xs font-bold">COVER</span>
@@ -122,7 +122,7 @@ function renderContent(data) {
               <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">${entry.categories?.find(cat => cat.includes('page:')) || 'N/A'}</span>
             </div>
           </a>
-          <div class="flex gap-1 flex-wrap justify-end" style="max-width: 150px;">
+          <div class="flex gap-1 flex-wrap justify-end block max-[408px]:hidden" style="max-width: 150px;">
             <span class="quality-badge quality-360p">360p</span>
             <span class="quality-badge quality-480p">480p</span>
             <span class="quality-badge quality-720p">720p</span>
