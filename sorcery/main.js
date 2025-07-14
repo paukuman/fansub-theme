@@ -100,6 +100,7 @@ function renderContent(data) {
   
   // Render setiap entry
   data.entries.forEach(entry => {
+    console.log(entry)
     const animeInfo = entry.animeinfo?.entries?.[0];
     
     const entryElement = document.createElement('div');
