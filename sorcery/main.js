@@ -105,8 +105,8 @@ function renderContent(data) {
     const entryElement = document.createElement('div');
     entryElement.className = 'flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors';
     entryElement.innerHTML = `
+    <a href="${entry.path}">
       <div class="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-      <a href="${entry.path}"
         <div class="image-cover w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
           <span class="text-xs font-bold">COVER</span>
         </div>
@@ -128,6 +128,7 @@ function renderContent(data) {
         </div>
         <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">${entry.published?.relative || 'Posted recently'}</p>
       </div>
+      </a>
     `;
     
     container.appendChild(entryElement);
