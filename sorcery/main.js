@@ -107,7 +107,7 @@ function renderContent(data) {
       // kualitas : BD, UHD, DVD, WEB-DL, WEBRip, HDRip, HDTV, CAM, TS
       const quality = entry.categories?.find(cat => cat.startsWith('quality:'))?.split(':')[1] || 'N/A';
       const episode = entry.categories?.find(cat => cat.startsWith('episode:'))?.split(':')[1] || 'N/A';
-      const season = animeinfo?.categories?.find(cat => cat.startsWith('season:'))?.split(':')[1] || 'N/A';
+      const season = animeInfo.categories?.find(cat => cat.startsWith('season:'))?.split(':')[1] || 'N/A';
       const resolutionStr = entry.categories?.find(cat => cat.startsWith('resolution:'))?.split(':')[1] || '';
       const availableResolutions = resolutionStr.split('|').filter(Boolean);
       const title = animeInfo.title || entry.title || "Untitled";
