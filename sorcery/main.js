@@ -136,7 +136,7 @@ function renderContent(data) {
   });
 }
 
- const apiUrl = 'https://mangadb.paukuman.workers.dev/anime?q=testing&page=episode';
+ const apiUrl = 'https://mangadb.paukuman.workers.dev/anime?page=episode';
   
   fetchWithProgress(apiUrl, updateProgress)
     .then(data => {
