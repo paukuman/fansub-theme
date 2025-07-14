@@ -132,7 +132,7 @@ function renderContent(data) {
               <h4 class="font-medium line-clamp-2">${title}</h4>
               <div class="flex gap-2 mt-1">
                 <span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">${quality}</span>
-                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Ep.${episode}|S${season}</span>
+                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">E${episode} | S${season}</span>
               </div>
             </a>
             <div class="flex gap-1 flex-wrap justify-end max-[476px]:hidden" style="max-width: 150px;">
