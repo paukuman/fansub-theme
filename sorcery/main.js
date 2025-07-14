@@ -106,8 +106,8 @@ function renderContent(data) {
 
       // kualitas : BD, UHD, DVD, WEB-DL, WEBRip, HDRip, HDTV, CAM, TS
       const quality = entry.categories?.find(cat => cat.startsWith('quality:'))?.split(':')[1] || 'N/A';
-      const episode = entry.categories?.find(cat => 'Ep.' + cat.startsWith('episode:'))?.split(':')[1] || 'N/A';
-      const season = animeInfo.categories?.find(cat => 'S' + cat.startsWith('season:'))?.split(':')[1] || 'N/A';
+      const episode = entry.categories?.find(cat => cat.startsWith('episode:'))?.split(':')[1] || 'N/A';
+      const season = animeInfo.categories?.find(cat => cat.startsWith('season:'))?.split(':')[1] || 'N/A';
       const resolutionStr = entry.categories?.find(cat => cat.startsWith('resolution:'))?.split(':')[1] || '';
       const availableResolutions = resolutionStr.split('|').filter(Boolean);
       const title = animeInfo.title || entry.title || "Untitled";
@@ -121,7 +121,7 @@ function renderContent(data) {
             ${coverImage ? 
               `<img src="${coverImage}" alt="${title}" class="w-full h-full object-cover" loading="lazy">` :
               `<div class="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
-                <span class="text-xs font-bold">${title[0]?.toUpperCase()}</span>
+                <span class="text-lg font-bold">${title[0]?.toUpperCase()}</span>
               </div>`
             }
           </a>
@@ -132,7 +132,7 @@ function renderContent(data) {
               <h4 class="font-medium line-clamp-2">${title}</h4>
               <div class="flex gap-2 mt-1">
                 <span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">${quality}</span>
-                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">${episode}|${season}</span>
+                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Ep.${episode}|S${season}</span>
               </div>
             </a>
             <div class="flex gap-1 flex-wrap justify-end max-[408px]:hidden" style="max-width: 150px;">
