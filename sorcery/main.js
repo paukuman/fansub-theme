@@ -135,7 +135,7 @@ function renderContent(data) {
                 <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Ep.${episode}|S${season}</span>
               </div>
             </a>
-            <div class="flex gap-1 flex-wrap justify-end max-[408px]:hidden" style="max-width: 150px;">
+            <div class="flex gap-1 flex-wrap justify-end max-[476px]:hidden" style="max-width: 150px;">
               ${availableResolutions.map(res => 
                 `<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${res}p</span>`
               ).join('')}
