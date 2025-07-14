@@ -111,8 +111,7 @@ function renderContent(data) {
       const resolutionStr = entry.categories?.find(cat => cat.startsWith('resolution:'))?.split(':')[1] || '';
       const availableResolutions = resolutionStr.split('|').filter(Boolean);
       const title = animeInfo.title || entry.title || "Untitled";
-      const defaultCover = "https://i1.wp.com/raw.githubusercontent.com/paukuman/fansub-theme/refs/heads/main/sorcery/default-image.jpg";
-      const coverImage = entry.content?.match(/src="([^"]+)"/)?.[1] || defaultCover;
+      const coverImage = entry.content?.match(/src="([^"]+)"/)?.[1] || "";
       
       const entryElement = document.createElement('div');
       entryElement.className = 'flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors';
@@ -122,7 +121,7 @@ function renderContent(data) {
             ${coverImage ? 
               `<img src="${coverImage}" alt="${title}" class="w-full h-full object-cover" loading="lazy">` :
               `<div class="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
-                <span class="text-xs font-bold">COVER</span>
+                <span class="text-xs font-bold">${title[0]?.toUpperCase()}</span>
               </div>`
             }
           </a>
