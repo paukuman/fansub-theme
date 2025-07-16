@@ -34,6 +34,171 @@ class AnimeInfo {
         this.container = document.getElementById('animeinfo-container');
         this.init();
     }
+/**
+     * Renders skeleton loading state
+     * @returns {string} HTML string for skeleton loading
+     */
+    renderSkeleton() {
+        return `
+      <div class="space-y-6">
+        ${this.renderHeaderSkeleton()}
+        ${this.renderSynopsisSkeleton()}
+        ${this.renderEpisodesSkeleton()}
+        ${this.renderCharactersSkeleton()}
+      </div>
+    `;
+    }
+
+    /**
+     * Renders header skeleton
+     * @returns {string} HTML string for header skeleton
+     */
+    renderHeaderSkeleton() {
+        return `
+      <div class="glass rounded-xl p-6">
+        <!-- Mobile layout skeleton -->
+        <div class="md:hidden">
+          <div class="flex gap-4">
+            <div class="w-24 h-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            <div class="flex-1">
+              <div class="h-6 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+              <div class="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+            </div>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+          </div>
+          <div class="mt-3 h-4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div class="mt-2 h-4 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div class="mt-4 flex gap-2">
+            <div class="flex-1 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            <div class="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            <div class="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+
+        <!-- Desktop layout skeleton -->
+        <div class="hidden md:flex gap-6">
+          <div class="w-48 h-64 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+          <div class="flex-1">
+            <div class="h-8 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
+            <div class="h-6 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-6"></div>
+            
+            <div class="flex items-center gap-4 mb-6">
+              <div class="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
+              <div class="space-y-2">
+                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+              <div class="space-y-2">
+                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mb-6">
+              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+            </div>
+            
+            <div class="flex gap-2">
+              <div class="h-10 w-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+              <div class="h-10 w-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+              <div class="h-10 w-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+              <div class="h-10 w-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    }
+
+    /**
+     * Renders synopsis skeleton
+     * @returns {string} HTML string for synopsis skeleton
+     */
+    renderSynopsisSkeleton() {
+        return `
+      <div class="glass rounded-xl p-6">
+        <div class="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
+        <div class="space-y-2">
+          <div class="h-4 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div class="h-4 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div class="h-4 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div class="h-4 w-2/3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div class="h-4 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+        </div>
+      </div>
+    `;
+    }
+
+    /**
+     * Renders episodes skeleton
+     * @returns {string} HTML string for episodes skeleton
+     */
+    renderEpisodesSkeleton() {
+        return `
+      <div class="glass rounded-xl p-6">
+        <div class="flex justify-between items-center mb-4">
+          <div class="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div class="flex items-center gap-2">
+            <div class="h-4 w-16 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div class="h-8 w-8 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+        
+        <div class="space-y-4">
+          ${Array(3).fill().map(() => `
+            <div class="flex flex-col md:flex-row gap-4 p-4">
+              <div class="w-full md:w-48 h-28 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+              <div class="flex-1 space-y-2">
+                <div class="h-5 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-3 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-3 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="mt-4 text-center">
+          <div class="inline-block h-10 w-40 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    `;
+    }
+
+    /**
+     * Renders characters skeleton
+     * @returns {string} HTML string for characters skeleton
+     */
+    renderCharactersSkeleton() {
+        return `
+      <div class="glass rounded-xl p-6">
+        <div class="h-6 w-48 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          ${Array(6).fill().map(() => `
+            <div class="text-center">
+              <div class="w-full h-40 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse mb-2"></div>
+              <div class="h-4 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mx-auto"></div>
+              <div class="h-3 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mx-auto mt-1"></div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="mt-4 text-center">
+          <div class="inline-block h-10 w-48 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    `;
+    }
 
     /**
      * Initializes the anime info fetching and rendering process
@@ -41,6 +206,9 @@ class AnimeInfo {
      */
     async init() {
         try {
+            // Show skeleton while loading
+            this.container.innerHTML = this.renderSkeleton();
+            
             await this.fetchAnimeInfo();
 
             // Second protection: Check if this is an animeinfo page
@@ -56,10 +224,12 @@ class AnimeInfo {
                 throw new Error('MAL ID not found in anime info');
             }
 
-            await this.fetchJikanAnimeData();
-            await this.fetchCharacterData();
-            await this.fetchEpisodeData();
-            await this.fetchPicturesData();
+            await Promise.all([
+                this.fetchJikanAnimeData(),
+                this.fetchCharacterData(),
+                this.fetchEpisodeData(),
+                this.fetchPicturesData()
+            ]);
 
             this.render();
             this.setupBackdrop();
