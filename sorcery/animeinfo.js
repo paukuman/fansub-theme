@@ -3,783 +3,677 @@
  * 
  * @copyright 2023 Paukuman
  * @author Paukuman
- * @version 1.0.0
+ * @version 2.0.0
  * 
  * @class
  * @classdesc This class handles fetching anime data from MAL/Jikan API and custom backend,
  * then renders it in a responsive layout with anime details, episodes, characters, etc.
- * 
- * @property {string} blogID - Blog identifier from meta tag
- * @property {string} postID - Post identifier from meta tag
- * @property {string|null} malID - MyAnimeList ID extracted from categories
- * @property {Object|null} animeData - Main anime information
- * @property {Array|null} characterData - Character data from MAL
- * @property {Array|null} episodeData - Episode list from custom API
- * @property {Array|null} picturesData - Anime pictures for backdrop
- * @property {HTMLElement} container - DOM container for rendering
  */
 class AnimeInfo {
-    /**
-     * Constructor - Initializes the AnimeInfo instance
-     * @constructor
-     */
     constructor() {
-        this.blogID = document.querySelector('meta[name="blogID"]').content;
-        this.postID = document.querySelector('meta[name="postID"]').content;
-        this.malID = null;
-        this.animeData = null;
-        this.characterData = null;
-        this.episodeData = null;
-        this.picturesData = null;
-        this.container = document.getElementById('animeinfo-container');
+        this.meta = {
+            blogID: document.querySelector('meta[name="blogID"]')?.content,
+            postID: document.querySelector('meta[name="postID"]')?.content
+        };
+        this.data = {
+            malID: null,
+            anime: null,
+            characters: null,
+            episodes: null,
+            pictures: null
+        };
+        this.selectors = {
+            container: '#animeinfo-container',
+            backdrop: '.backdrop-image'
+        };
+        this.defaults = {
+            image: {
+                poster: 'https://via.placeholder.com/300x400',
+                episode: 'https://via.placeholder.com/300x200',
+                character: 'https://via.placeholder.com/150'
+            },
+            truncateLength: 200
+        };
         this.init();
     }
-/**
-     * Renders skeleton loading state
-     * @returns {string} HTML string for skeleton loading
-     */
-    renderSkeleton() {
-        return `
-      <div class="space-y-6">
-        ${this.renderHeaderSkeleton()}
-        ${this.renderSynopsisSkeleton()}
-        ${this.renderEpisodesSkeleton()}
-        ${this.renderCharactersSkeleton()}
-      </div>
-    `;
-    }
 
-    /**
-     * Renders header skeleton
-     * @returns {string} HTML string for header skeleton
-     */
-    renderHeaderSkeleton() {
-        return `
-      <div class="glass rounded-xl p-6">
-        <!-- Mobile layout skeleton -->
-        <div class="md:hidden">
-          <div class="flex gap-4">
-            <div class="w-24 h-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-            <div class="flex-1">
-              <div class="h-6 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
-              <div class="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-          </div>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
-            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
-            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
-          </div>
-          <div class="mt-3 h-4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div class="mt-2 h-4 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div class="mt-4 flex gap-2">
-            <div class="flex-1 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-            <div class="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-            <div class="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-          </div>
-        </div>
-
-        <!-- Desktop layout skeleton -->
-        <div class="hidden md:flex gap-6">
-          <div class="w-48 h-64 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-          <div class="flex-1">
-            <div class="h-8 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
-            <div class="h-6 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-6"></div>
-            
-            <div class="flex items-center gap-4 mb-6">
-              <div class="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
-              <div class="space-y-2">
-                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-              <div class="space-y-2">
-                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-            </div>
-            
-            <div class="flex flex-wrap gap-2 mb-6">
-              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
-              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
-              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
-              <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
-            </div>
-            
-            <div class="flex gap-2">
-              <div class="h-10 w-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-              <div class="h-10 w-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-              <div class="h-10 w-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-              <div class="h-10 w-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    }
-
-    /**
-     * Renders synopsis skeleton
-     * @returns {string} HTML string for synopsis skeleton
-     */
-    renderSynopsisSkeleton() {
-        return `
-      <div class="glass rounded-xl p-6">
-        <div class="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
-        <div class="space-y-2">
-          <div class="h-4 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div class="h-4 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div class="h-4 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div class="h-4 w-2/3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div class="h-4 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-        </div>
-      </div>
-    `;
-    }
-
-    /**
-     * Renders episodes skeleton
-     * @returns {string} HTML string for episodes skeleton
-     */
-    renderEpisodesSkeleton() {
-        return `
-      <div class="glass rounded-xl p-6">
-        <div class="flex justify-between items-center mb-4">
-          <div class="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div class="flex items-center gap-2">
-            <div class="h-4 w-16 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-            <div class="h-8 w-8 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-          </div>
-        </div>
-        
-        <div class="space-y-4">
-          ${Array(3).fill().map(() => `
-            <div class="flex flex-col md:flex-row gap-4 p-4">
-              <div class="w-full md:w-48 h-28 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-              <div class="flex-1 space-y-2">
-                <div class="h-5 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div class="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div class="h-3 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div class="h-3 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-        
-        <div class="mt-4 text-center">
-          <div class="inline-block h-10 w-40 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-        </div>
-      </div>
-    `;
-    }
-
-    /**
-     * Renders characters skeleton
-     * @returns {string} HTML string for characters skeleton
-     */
-    renderCharactersSkeleton() {
-        return `
-      <div class="glass rounded-xl p-6">
-        <div class="h-6 w-48 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
-        
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          ${Array(6).fill().map(() => `
-            <div class="text-center">
-              <div class="w-full h-40 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse mb-2"></div>
-              <div class="h-4 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mx-auto"></div>
-              <div class="h-3 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mx-auto mt-1"></div>
-            </div>
-          `).join('')}
-        </div>
-        
-        <div class="mt-4 text-center">
-          <div class="inline-block h-10 w-48 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-        </div>
-      </div>
-    `;
-    }
-
-    /**
-     * Initializes the anime info fetching and rendering process
-     * @async
-     */
+    // Core methods
     async init() {
         try {
-            // Show skeleton while loading
-            this.container.innerHTML = this.renderSkeleton();
+            if (!this.validateRequirements()) return;
             
-            await this.fetchAnimeInfo();
-
-            // Second protection: Check if this is an animeinfo page
-            const pageType = this.animeData.categories?.find(cat => cat.startsWith('page:'))?.split(':')[1];
-            if (pageType !== 'animeinfo') {
-                console.log('Not an animeinfo page - script not executed');
-                this.container.remove()
+            this.showSkeleton();
+            await this.fetchAllData();
+            
+            if (!this.isAnimeInfoPage()) {
+                this.removeContainer();
                 return;
             }
 
-            this.extractMalID();
-
-            if (!this.malID) {
-                throw new Error('MAL ID not found in anime info');
-            }
-
-            await Promise.all([
-                this.fetchJikanAnimeData(),
-                this.fetchCharacterData(),
-                this.fetchEpisodeData(),
-                this.fetchPicturesData()
-            ]);
-
             this.render();
             this.setupBackdrop();
-
         } catch (error) {
-            console.error('Error initializing AnimeInfo:', error);
+            console.error('AnimeInfo initialization error:', error);
             this.showError('Failed to load anime information. Please try again later.');
         }
     }
 
-    /**
-     * Fetches anime pictures data from Jikan API for backdrop
-     * @async
-     */
-    async fetchPicturesData() {
-        try {
-            const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/pictures`);
-            if (!response.ok) throw new Error('Pictures API response was not ok');
-
-            const data = await response.json();
-            this.picturesData = data.data || [];
-        } catch (error) {
-            console.error('Error fetching pictures data:', error);
-            this.picturesData = [];
+    validateRequirements() {
+        if (!this.meta.blogID || !this.meta.postID) {
+            console.error('Missing required meta tags');
+            return false;
         }
+        if (!document.querySelector(this.selectors.container)) {
+            console.error('Container element not found');
+            return false;
+        }
+        return true;
     }
 
-    /**
-     * Sets up the anime backdrop image from pictures data
-     */
-    setupBackdrop() {
-        const backdropContainer = document.querySelector('.backdrop-image');
-        if (!backdropContainer) return;
-
-        if (this.picturesData && this.picturesData.length > 0) {
-            const randomImage = this.picturesData[Math.floor(Math.random() * this.picturesData.length)];
-            const imageUrl = randomImage.jpg?.large_image_url || randomImage.jpg?.image_url;
-
-            if (imageUrl) {
-                backdropContainer.className = 'backdrop-image w-full h-full';
-                backdropContainer.style.background = `
-          linear-gradient(to bottom right, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.3)),
-          url('${imageUrl}')
-        `;
-                backdropContainer.style.backgroundSize = 'cover';
-                backdropContainer.style.backgroundPosition = 'center';
-                backdropContainer.style.backgroundRepeat = 'no-repeat';
-                backdropContainer.innerHTML = '';
-            }
+    async fetchAllData() {
+        await this.fetchAnimeInfo();
+        this.extractMalID();
+        
+        if (!this.data.malID) {
+            throw new Error('MAL ID not found');
         }
+
+        await Promise.all([
+            this.fetchJikanData(),
+            this.fetchCharacters(),
+            this.fetchEpisodes(),
+            this.fetchPictures()
+        ]);
     }
 
-    /**
-     * Fetches basic anime info from custom API
-     * @async
-     * @throws {Error} When network response is not ok or API returns error status
-     */
+    // Data fetching methods
     async fetchAnimeInfo() {
+        const url = `https://mangadb.paukuman.workers.dev/anime?blogID=${this.meta.blogID}&postID=${this.meta.postID}`;
+        const response = await this.fetchData(url);
+        this.data.anime = response?.entry || null;
+    }
+
+    async fetchJikanData() {
+        const url = `https://api.jikan.moe/v4/anime/${this.data.malID}/full`;
+        const response = await this.fetchData(url);
+        this.data.anime = { ...this.data.anime, ...response?.data };
+    }
+
+    async fetchCharacters() {
+        const url = `https://api.jikan.moe/v4/anime/${this.data.malID}/characters`;
+        const response = await this.fetchData(url);
+        this.data.characters = response?.data || [];
+    }
+
+    async fetchEpisodes() {
+        const url = `https://mangadb.paukuman.workers.dev/anime?blogID=${this.meta.blogID}&mal_id=${this.data.malID}&page=episode`;
+        const response = await this.fetchData(url);
+        this.data.episodes = response?.entries || [];
+    }
+
+    async fetchPictures() {
+        const url = `https://api.jikan.moe/v4/anime/${this.data.malID}/pictures`;
+        const response = await this.fetchData(url);
+        this.data.pictures = response?.data || [];
+    }
+
+    async fetchData(url) {
         try {
-            const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&postID=${this.postID}`);
-            if (!response.ok) throw new Error('Network response was not ok');
-
-            const data = await response.json();
-            if (data.status !== 200) throw new Error('API returned non-success status');
-
-            this.animeData = data.response.entry;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return await response.json();
         } catch (error) {
-            console.error('Error fetching anime info:', error);
-            throw error;
+            console.error(`Fetch error for ${url}:`, error);
+            return null;
         }
     }
 
-    /**
-     * Extracts MAL ID from anime categories
-     */
+    // Data processing methods
     extractMalID() {
-        try {
-            const malCategory = this.animeData.categories.find(cat => cat.startsWith('mal_id:'));
-            if (malCategory) {
-                this.malID = malCategory.split(':')[1];
-            }
-        } catch (error) {
-            console.error('Error extracting MAL ID:', error);
-            throw error;
+        const malCategory = this.data.anime?.categories?.find(cat => cat.startsWith('mal_id:'));
+        this.data.malID = malCategory?.split(':')[1] || null;
+    }
+
+    isAnimeInfoPage() {
+        const pageType = this.data.anime?.categories?.find(cat => cat.startsWith('page:'))?.split(':')[1];
+        return pageType === 'animeinfo';
+    }
+
+    extractFromCategories(categories, prefix) {
+        if (!categories) return null;
+        const category = Array.isArray(categories) 
+            ? categories.find(cat => cat.startsWith(prefix))
+            : categories;
+        return category?.split(':')[1] || null;
+    }
+
+    // Rendering methods
+    showSkeleton() {
+        const container = document.querySelector(this.selectors.container);
+        if (container) {
+            container.innerHTML = this.renderSkeleton();
         }
     }
 
-    /**
-     * Fetches detailed anime data from Jikan API
-     * @async
-     * @throws {Error} When Jikan API response is not ok or no data returned
-     */
-    async fetchJikanAnimeData() {
-        try {
-            const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/full`);
-            if (!response.ok) throw new Error('Jikan API response was not ok');
-
-            const data = await response.json();
-            if (!data.data) throw new Error('No data returned from Jikan API');
-
-            this.animeData = { ...this.animeData, ...data.data };
-        } catch (error) {
-            console.error('Error fetching Jikan anime data:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Fetches character data from Jikan API
-     * @async
-     */
-    async fetchCharacterData() {
-        try {
-            const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/characters`);
-            if (!response.ok) throw new Error('Jikan characters API response was not ok');
-
-            const data = await response.json();
-            this.characterData = data.data || [];
-        } catch (error) {
-            console.error('Error fetching character data:', error);
-            this.characterData = [];
-        }
-    }
-
-    /**
-     * Fetches episode data from custom API
-     * @async
-     */
-    async fetchEpisodeData() {
-        try {
-            const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode`);
-            if (!response.ok) throw new Error('Episode API response was not ok');
-
-            const data = await response.json();
-            this.episodeData = data.entries || [];
-        } catch (error) {
-            console.error('Error fetching episode data:', error);
-            this.episodeData = [];
-        }
-    }
-
-    /**
-     * Displays error message in the container
-     * @param {string} message - Error message to display
-     */
     showError(message) {
-        this.container.innerHTML = `
-      <div class="glass rounded-xl p-6 text-red-500">
-        <i class="fas fa-exclamation-triangle mr-2"></i>
-        ${message}
-      </div>
-    `;
-    }
-
-    /**
-     * Renders all anime information sections
-     */
-    render() {
-        this.container.innerHTML = `
-      ${this.renderHeader()}
-      ${this.renderSynopsis()}
-      ${this.renderEpisodes()}
-      ${this.renderCharacters()}
-    `;
-    }
-
-    /**
-     * Renders the anime header section with poster and basic info
-     * @returns {string} HTML string for the header section
-     */
-    renderHeader() {
-        const englishTitle = this.animeData.title_english || this.animeData.title;
-        const japaneseTitle = this.animeData.title_japanese || '';
-        const imageUrl = this.animeData.images?.jpg?.large_image_url || 'https://via.placeholder.com/300x400';
-        const score = this.animeData.score || this.extractScoreFromCategories();
-        const rank = this.animeData.rank ? `Rank #${this.animeData.rank}` : '';
-        const members = this.animeData.members ? `${this.formatNumber(this.animeData.members)} Members` : '';
-        const favorites = this.animeData.favorites ? `${this.formatNumber(this.animeData.favorites)} Favorites` : '';
-        const type = this.animeData.type || '';
-        const airedDate = this.animeData.aired?.string || '';
-        const duration = this.animeData.duration || '';
-        const genres = this.animeData.genres?.map(genre => genre.name) || [];
-
-        return `
-      <div class="glass rounded-xl p-6">
-        <!-- Mobile layout -->
-        <div class="md:hidden mobile-poster-row">
-          <div class="mobile-poster">
-            <div class="anime-poster w-full bg-gradient-to-br from-gray-400 to-gray-600 overflow-hidden">
-              <img src="${imageUrl}" alt="${englishTitle}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x400'">
-            </div>
-          </div>
-          <div class="mobile-title">
-            <h1 class="text-2xl font-bold text-primary-700 dark:text-primary-400">${englishTitle}</h1>
-            ${japaneseTitle ? `<h2 class="text-lg text-gray-600 dark:text-gray-400">${japaneseTitle}</h2>` : ''}
-          </div>
-        </div>
-
-        <!-- Desktop layout -->
-        <div class="hidden md:flex gap-6">
-          <div class="w-48 flex-shrink-0">
-            <div class="anime-poster w-full bg-gradient-to-br from-gray-400 to-gray-600 overflow-hidden">
-              <img src="${imageUrl}" alt="${englishTitle}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x400'">
-            </div>
-          </div>
-
-          <div class="flex-1">
-            <h1 class="text-3xl font-bold text-primary-700 dark:text-primary-400">${englishTitle}</h1>
-            ${japaneseTitle ? `<h2 class="text-xl text-gray-600 dark:text-gray-400 mb-4">${japaneseTitle}</h2>` : ''}
-
-            <div class="flex flex-wrap items-center gap-4 mb-4">
-              ${score ? `
-              <div class="progress-circle">
-                <span class="font-bold text-lg">${score}</span>
-              </div>
-              ` : ''}
-
-              <div class="space-y-1">
-                ${rank ? `
-                <div class="flex items-center text-sm">
-                  <i class="fas fa-star text-yellow-500 mr-1"></i>
-                  <span>${rank}</span>
+        const container = document.querySelector(this.selectors.container);
+        if (container) {
+            container.innerHTML = `
+                <div class="glass rounded-xl p-6 text-red-500">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    ${message}
                 </div>
-                ` : ''}
-                ${members ? `
-                <div class="flex items-center text-sm">
-                  <i class="fas fa-users mr-1"></i>
-                  <span>${members}</span>
-                </div>
-                ` : ''}
-                ${favorites ? `
-                <div class="flex items-center text-sm">
-                  <i class="fas fa-heart text-red-500 mr-1"></i>
-                  <span>${favorites}</span>
-                </div>
-                ` : ''}
-              </div>
-
-              <div class="space-y-1">
-                ${type ? `
-                <div class="flex items-center text-sm">
-                  <i class="fas fa-tv mr-1"></i>
-                  <span>${type}</span>
-                </div>
-                ` : ''}
-                ${airedDate ? `
-                <div class="flex items-center text-sm">
-                  <i class="fas fa-calendar-alt mr-1"></i>
-                  <span>${airedDate}</span>
-                </div>
-                ` : ''}
-                ${duration ? `
-                <div class="flex items-center text-sm">
-                  <i class="fas fa-clock mr-1"></i>
-                  <span>${duration}</span>
-                </div>
-                ` : ''}
-              </div>
-            </div>
-
-            ${genres.length > 0 ? `
-            <div class="mb-4">
-              ${genres.map(genre => `
-                <span class="genre-tag bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">${genre}</span>
-              `).join('')}
-            </div>
-            ` : ''}
-
-            <div class="flex flex-wrap gap-2">
-              <button class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
-                <i class="fas fa-plus mr-2"></i>Add to List
-              </button>
-              <button class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                <i class="fas fa-play mr-2"></i>Watch Now
-              </button>
-              <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-                <i class="fas fa-share-alt"></i>
-              </button>
-              <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-                <i class="fas fa-bookmark"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mobile description -->
-        <div class="mt-4 md:hidden">
-          ${genres.length > 0 ? `
-          <div class="mb-4">
-            ${genres.slice(0, 4).map(genre => `
-              <span class="genre-tag bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">${genre}</span>
-            `).join('')}
-          </div>
-          ` : ''}
-          ${this.animeData.synopsis ? `
-          <p class="text-gray-700 dark:text-gray-300 text-sm">
-            ${this.truncateSynopsis(this.animeData.synopsis, 200)}
-          </p>
-          ` : ''}
-          <div class="flex gap-2 mt-3">
-            <button class="flex-1 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm">
-              <i class="fas fa-play mr-1"></i>Watch
-            </button>
-            <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-              <i class="fas fa-plus"></i>
-            </button>
-            <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-              <i class="fas fa-bookmark"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-    }
-
-    /**
-     * Renders the anime synopsis section
-     * @returns {string} HTML string for the synopsis section
-     */
-    renderSynopsis() {
-        if (!this.animeData.synopsis) return '';
-
-        return `
-      <div class="glass rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Synopsis</h2>
-        <p class="text-gray-700 dark:text-gray-300">
-          ${this.animeData.synopsis}
-        </p>
-      </div>
-    `;
-    }
-
-    /**
-     * Renders the episodes section
-     * @returns {string} HTML string for the episodes section
-     */
-    renderEpisodes() {
-        if (!this.episodeData || this.episodeData.length === 0) return '';
-
-        return `
-      <div class="glass rounded-xl p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-bold text-primary-700 dark:text-primary-400">Episodes</h2>
-          <div class="flex items-center space-x-2">
-            <span class="text-sm">Season ${this.extractSeasonFromCategories() || '1'}</span>
-            <button class="p-2 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
-              <i class="fas fa-chevron-down"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          ${this.episodeData.map(episode => this.renderEpisodeItem(episode)).join('')}
-        </div>
-
-        ${this.episodeData.length > 2 ? `
-        <div class="mt-4 text-center">
-          <button class="px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-            Load More Episodes
-          </button>
-        </div>
-        ` : ''}
-      </div>
-    `;
-    }
-
-    /**
-     * Renders a single episode item
-     * @param {Object} episode - Episode data object
-     * @returns {string} HTML string for an episode item
-     */
-    renderEpisodeItem(episode) {
-        const episodeNumber = this.extractEpisodeNumber(episode.categories);
-        const quality = this.extractQuality(episode.categories);
-        const resolution = this.extractResolution(episode.categories);
-        const date = episode.published?.relative || episode.published?.default || '';
-
-        let imageUrl = 'https://via.placeholder.com/300x200';
-        const imgMatch = episode.content.match(/src="([^"]+)"/);
-        if (imgMatch && imgMatch[1]) {
-            imageUrl = imgMatch[1];
+            `;
         }
-
-        return `
-      <div class="flex flex-col md:flex-row gap-4 p-4 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
-        <div class="w-full md:w-48 flex-shrink-0">
-          <div class="episode-thumbnail w-full h-full overflow-hidden rounded-lg">
-            <img src="${imageUrl}" alt="${episode.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200'">
-          </div>
-        </div>
-        <div class="flex-1">
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-medium">${episode.title}</h3>
-              <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mt-1">
-                ${episodeNumber ? `<span class="mr-3">Ep ${episodeNumber}</span>` : ''}
-                <span class="mr-3"><i class="fas fa-clock mr-1"></i>24m</span>
-                ${date ? `<span>${date}</span>` : ''}
-              </div>
-            </div>
-            <div class="flex items-center">
-              ${quality ? `<span class="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded mr-2">${quality}</span>` : ''}
-              ${resolution ? `<span class="text-sm bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">${resolution}</span>` : ''}
-            </div>
-          </div>
-          ${episode.content ? `
-          <p class="text-gray-600 dark:text-gray-400 mt-2">
-            ${this.extractTextFromContent(episode.content)}
-          </p>
-          ` : ''}
-        </div>
-      </div>
-    `;
     }
 
-    /**
-     * Renders the characters section
-     * @returns {string} HTML string for the characters section
-     */
+    removeContainer() {
+        const container = document.querySelector(this.selectors.container);
+        if (container) container.remove();
+    }
+
+    render() {
+        const container = document.querySelector(this.selectors.container);
+        if (container) {
+            container.innerHTML = `
+                ${this.renderHeader()}
+                ${this.renderSynopsis()}
+                ${this.renderEpisodes()}
+                ${this.renderCharacters()}
+            `;
+        }
+    }
+
+    setupBackdrop() {
+        const backdrop = document.querySelector(this.selectors.backdrop);
+        if (!backdrop || !this.data.pictures?.length) return;
+
+        const randomImage = this.getRandomImage();
+        if (randomImage) {
+            backdrop.className = 'backdrop-image w-full h-full';
+            backdrop.style.background = `
+                linear-gradient(to bottom right, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.3)),
+                url('${randomImage}')
+            `;
+            backdrop.style.backgroundSize = 'cover';
+            backdrop.style.backgroundPosition = 'center';
+            backdrop.style.backgroundRepeat = 'no-repeat';
+            backdrop.innerHTML = '';
+        }
+    }
+
+    getRandomImage() {
+        const randomImage = this.data.pictures[Math.floor(Math.random() * this.data.pictures.length)];
+        return randomImage.jpg?.large_image_url || randomImage.jpg?.image_url;
+    }
+
+    // Component rendering methods
+    renderHeader() {
+        const anime = this.data.anime;
+        if (!anime) return '';
+
+        const {
+            title_english: englishTitle = anime.title,
+            title_japanese: japaneseTitle = '',
+            images,
+            score = this.extractFromCategories(anime.categories, 'rate'),
+            rank = null,
+            members = null,
+            favorites = null,
+            type = '',
+            aired = {},
+            duration = '',
+            genres = [],
+            synopsis = ''
+        } = anime;
+
+        const imageUrl = images?.jpg?.large_image_url || this.defaults.image.poster;
+        const airedDate = aired?.string || '';
+        const genreList = genres.map(genre => genre.name) || [];
+
+        return `
+            <div class="glass rounded-xl p-6">
+                <!-- Mobile layout -->
+                <div class="md:hidden mobile-poster-row">
+                    ${this.renderPoster(imageUrl, englishTitle, 'w-24 h-32')}
+                    <div class="mobile-title">
+                        <h1 class="text-2xl font-bold text-primary-700 dark:text-primary-400">${englishTitle}</h1>
+                        ${japaneseTitle ? `<h2 class="text-lg text-gray-600 dark:text-gray-400">${japaneseTitle}</h2>` : ''}
+                    </div>
+                </div>
+
+                <!-- Desktop layout -->
+                <div class="hidden md:flex gap-6">
+                    ${this.renderPoster(imageUrl, englishTitle, 'w-48 h-64')}
+                    <div class="flex-1">
+                        <h1 class="text-3xl font-bold text-primary-700 dark:text-primary-400">${englishTitle}</h1>
+                        ${japaneseTitle ? `<h2 class="text-xl text-gray-600 dark:text-gray-400 mb-4">${japaneseTitle}</h2>` : ''}
+
+                        ${this.renderScoreSection(score, rank, members, favorites)}
+                        ${this.renderInfoSection(type, airedDate, duration)}
+                        ${this.renderGenres(genreList)}
+                        ${this.renderActionButtons()}
+                    </div>
+                </div>
+
+                <!-- Mobile description -->
+                <div class="mt-4 md:hidden">
+                    ${this.renderGenres(genreList.slice(0, 4), true}
+                    ${synopsis ? `<p class="text-gray-700 dark:text-gray-300 text-sm">${this.truncateText(synopsis, this.defaults.truncateLength)}</p>` : ''}
+                    ${this.renderMobileActionButtons()}
+                </div>
+            </div>
+        `;
+    }
+
+    renderPoster(src, alt, className = '') {
+        return `
+            <div class="${className} flex-shrink-0">
+                <div class="anime-poster w-full h-full bg-gradient-to-br from-gray-400 to-gray-600 overflow-hidden">
+                    <img src="${src}" alt="${alt}" class="w-full h-full object-cover" 
+                         onerror="this.src='${this.defaults.image.poster}'">
+                </div>
+            </div>
+        `;
+    }
+
+    renderScoreSection(score, rank, members, favorites) {
+        if (!score && !rank && !members && !favorites) return '';
+
+        return `
+            <div class="flex flex-wrap items-center gap-4 mb-4">
+                ${score ? this.renderScoreCircle(score) : ''}
+                <div class="space-y-1">
+                    ${rank ? this.renderInfoItem('star', `Rank #${rank}`, 'yellow-500') : ''}
+                    ${members ? this.renderInfoItem('users', `${this.formatNumber(members)} Members`) : ''}
+                    ${favorites ? this.renderInfoItem('heart', `${this.formatNumber(favorites)} Favorites`, 'red-500') : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    renderScoreCircle(score) {
+        return `
+            <div class="progress-circle">
+                <span class="font-bold text-lg">${score}</span>
+            </div>
+        `;
+    }
+
+    renderInfoSection(type, airedDate, duration) {
+        if (!type && !airedDate && !duration) return '';
+
+        return `
+            <div class="space-y-1 mb-6">
+                ${type ? this.renderInfoItem('tv', type) : ''}
+                ${airedDate ? this.renderInfoItem('calendar-alt', airedDate) : ''}
+                ${duration ? this.renderInfoItem('clock', duration) : ''}
+            </div>
+        `;
+    }
+
+    renderInfoItem(icon, text, iconColor = '') {
+        const colorClass = iconColor ? `text-${iconColor}` : '';
+        return `
+            <div class="flex items-center text-sm">
+                <i class="fas fa-${icon} mr-1 ${colorClass}"></i>
+                <span>${text}</span>
+            </div>
+        `;
+    }
+
+    renderGenres(genres, isMobile = false) {
+        if (!genres?.length) return '';
+
+        return `
+            <div class="${isMobile ? 'mb-4' : 'mb-6'}">
+                ${genres.map(genre => `
+                    <span class="genre-tag bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">${genre}</span>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    renderActionButtons() {
+        return `
+            <div class="flex flex-wrap gap-2">
+                <button class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Add to List
+                </button>
+                <button class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                    <i class="fas fa-play mr-2"></i>Watch Now
+                </button>
+                <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+                <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+                    <i class="fas fa-bookmark"></i>
+                </button>
+            </div>
+        `;
+    }
+
+    renderMobileActionButtons() {
+        return `
+            <div class="flex gap-2 mt-3">
+                <button class="flex-1 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm">
+                    <i class="fas fa-play mr-1"></i>Watch
+                </button>
+                <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+                    <i class="fas fa-bookmark"></i>
+                </button>
+            </div>
+        `;
+    }
+
+    renderSynopsis() {
+        if (!this.data.anime?.synopsis) return '';
+
+        return `
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Synopsis</h2>
+                <p class="text-gray-700 dark:text-gray-300">
+                    ${this.data.anime.synopsis}
+                </p>
+            </div>
+        `;
+    }
+
+    renderEpisodes() {
+        if (!this.data.episodes?.length) return '';
+
+        const visibleEpisodes = this.data.episodes.slice(0, 3);
+        const season = this.extractFromCategories(this.data.anime.categories, 'season') || '1';
+
+        return `
+            <div class="glass rounded-xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-primary-700 dark:text-primary-400">Episodes</h2>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm">Season ${season}</span>
+                        <button class="p-2 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    ${visibleEpisodes.map(episode => this.renderEpisode(episode)).join('')}
+                </div>
+
+                ${this.data.episodes.length > 3 ? this.renderLoadMoreButton('Load More Episodes') : ''}
+            </div>
+        `;
+    }
+
+    renderEpisode(episode) {
+        const episodeNumber = this.extractFromCategories(episode.categories, 'episode');
+        const quality = this.extractFromCategories(episode.categories, 'quality');
+        const resolution = this.extractFromCategories(episode.categories, 'resolution')?.replace(/\|/g, ', ');
+        const date = episode.published?.relative || episode.published?.default || '';
+        const imageUrl = this.extractImageFromContent(episode.content) || this.defaults.image.episode;
+        const contentText = episode.content ? this.extractTextFromContent(episode.content) : '';
+
+        return `
+            <div class="flex flex-col md:flex-row gap-4 p-4 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
+                <div class="w-full md:w-48 flex-shrink-0">
+                    <div class="episode-thumbnail w-full h-full overflow-hidden rounded-lg">
+                        <img src="${imageUrl}" alt="${episode.title}" 
+                             class="w-full h-full object-cover" 
+                             onerror="this.src='${this.defaults.image.episode}'">
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-medium">${episode.title}</h3>
+                            <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                ${episodeNumber ? `<span class="mr-3">Ep ${episodeNumber}</span>` : ''}
+                                <span class="mr-3"><i class="fas fa-clock mr-1"></i>24m</span>
+                                ${date ? `<span>${date}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            ${quality ? this.renderQualityBadge(quality, 'blue') : ''}
+                            ${resolution ? this.renderQualityBadge(resolution, 'green') : ''}
+                        </div>
+                    </div>
+                    ${contentText ? `<p class="text-gray-600 dark:text-gray-400 mt-2">${contentText}</p>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    renderQualityBadge(text, color) {
+        return `
+            <span class="text-sm bg-${color}-100 dark:bg-${color}-900 text-${color}-800 dark:text-${color}-200 px-2 py-1 rounded mr-2">
+                ${text}
+            </span>
+        `;
+    }
+
     renderCharacters() {
-        if (!this.characterData || this.characterData.length === 0) return '';
+        const mainCharacters = this.data.characters
+            ?.filter(char => char.role === 'Main')
+            ?.slice(0, 6) || [];
 
-        const mainCharacters = this.characterData
-            .filter(char => char.role === 'Main')
-            .slice(0, 6);
-
-        if (mainCharacters.length === 0) return '';
+        if (!mainCharacters.length) return '';
 
         return `
-      <div class="glass rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Characters &amp; Cast</h2>
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Characters &amp; Cast</h2>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          ${mainCharacters.map(character => this.renderCharacterItem(character)).join('')}
-        </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    ${mainCharacters.map(character => this.renderCharacter(character)).join('')}
+                </div>
 
-        ${this.characterData.length > 6 ? `
-        <div class="mt-4 text-center">
-          <button class="px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-            View All Characters
-          </button>
-        </div>
-        ` : ''}
-      </div>
-    `;
+                ${this.data.characters.length > 6 ? this.renderLoadMoreButton('View All Characters') : ''}
+            </div>
+        `;
     }
 
-    /**
-     * Renders a single character item
-     * @param {Object} character - Character data object
-     * @returns {string} HTML string for a character item
-     */
-    renderCharacterItem(character) {
-        const charImage = character.character.images?.jpg?.image_url || 'https://via.placeholder.com/150';
+    renderCharacter(character) {
+        const charImage = character.character.images?.jpg?.image_url || this.defaults.image.character;
         const seiyuu = character.voice_actors?.find(va => va.language === 'Japanese');
 
         return `
-      <div class="text-center">
-        <div class="cast-card w-full h-48 bg-gradient-to-br from-gray-400 to-gray-600 mb-2 overflow-hidden rounded-lg">
-          <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
-        </div>
-        <h3 class="font-medium">${character.character.name}</h3>
-        ${seiyuu ? `<p class="text-sm text-gray-600 dark:text-gray-400">${seiyuu.person.name}</p>` : ''}
-      </div>
-    `;
+            <div class="text-center">
+                <div class="cast-card w-full h-48 bg-gradient-to-br from-gray-400 to-gray-600 mb-2 overflow-hidden rounded-lg">
+                    <img src="${charImage}" alt="${character.character.name}" 
+                         class="w-full h-full object-cover" 
+                         onerror="this.src='${this.defaults.image.character}'">
+                </div>
+                <h3 class="font-medium">${character.character.name}</h3>
+                ${seiyuu ? `<p class="text-sm text-gray-600 dark:text-gray-400">${seiyuu.person.name}</p>` : ''}
+            </div>
+        `;
     }
 
-    // Helper methods
-
-    /**
-     * Extracts score from anime categories
-     * @returns {string|null} Score value or null if not found
-     */
-    extractScoreFromCategories() {
-        const scoreCat = this.animeData.categories?.find(cat => cat.startsWith('rate:'));
-        return scoreCat ? scoreCat.split(':')[1] : null;
+    renderLoadMoreButton(text) {
+        return `
+            <div class="mt-4 text-center">
+                <button class="px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+                    ${text}
+                </button>
+            </div>
+        `;
     }
 
-    /**
-     * Extracts season number from anime categories
-     * @returns {string|null} Season number or null if not found
-     */
-    extractSeasonFromCategories() {
-        const seasonCat = this.animeData.categories?.find(cat => cat.startsWith('season:'));
-        return seasonCat ? seasonCat.split(':')[1] : null;
+    renderSkeleton() {
+        return `
+            <div class="space-y-6">
+                ${this.renderHeaderSkeleton()}
+                ${this.renderSynopsisSkeleton()}
+                ${this.renderEpisodesSkeleton()}
+                ${this.renderCharactersSkeleton()}
+            </div>
+        `;
     }
 
-    /**
-     * Extracts episode number from episode categories
-     * @param {Array} categories - Episode categories array
-     * @returns {string|null} Episode number or null if not found
-     */
-    extractEpisodeNumber(categories) {
-        const epCat = categories?.find(cat => cat.startsWith('episode:'));
-        return epCat ? epCat.split(':')[1] : null;
+    renderHeaderSkeleton() {
+        return `
+            <div class="glass rounded-xl p-6">
+                <!-- Mobile layout skeleton -->
+                <div class="md:hidden">
+                    <div class="flex gap-4">
+                        <div class="w-24 h-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                        <div class="flex-1">
+                            <div class="h-6 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                            <div class="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                        <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                        <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                    </div>
+                    <div class="mt-3 h-4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="mt-2 h-4 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="mt-4 flex gap-2">
+                        <div class="flex-1 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                        <div class="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                        <div class="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                    </div>
+                </div>
+
+                <!-- Desktop layout skeleton -->
+                <div class="hidden md:flex gap-6">
+                    <div class="w-48 h-64 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                    <div class="flex-1">
+                        <div class="h-8 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
+                        <div class="h-6 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-6"></div>
+                        
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
+                            <div class="space-y-2">
+                                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-4 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-2 mb-6">
+                            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                            <div class="h-6 w-16 bg-gray-300 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <div class="h-10 w-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                            <div class="h-10 w-32 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                            <div class="h-10 w-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                            <div class="h-10 w-10 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
-    /**
-     * Extracts quality from episode categories
-     * @param {Array} categories - Episode categories array
-     * @returns {string|null} Quality value or null if not found
-     */
-    extractQuality(categories) {
-        const qualityCat = categories?.find(cat => cat.startsWith('quality:'));
-        return qualityCat ? qualityCat.split(':')[1] : null;
+    renderSynopsisSkeleton() {
+        return `
+            <div class="glass rounded-xl p-6">
+                <div class="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
+                <div class="space-y-2">
+                    <div class="h-4 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="h-4 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="h-4 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="h-4 w-2/3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="h-4 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+            </div>
+        `;
     }
 
-    /**
-     * Extracts resolution from episode categories
-     * @param {Array} categories - Episode categories array
-     * @returns {string|null} Resolution value or null if not found
-     */
-    extractResolution(categories) {
-        const resCat = categories?.find(cat => cat.startsWith('resolution:'));
-        return resCat ? resCat.split(':')[1].replace(/\|/g, ', ') : null;
+    renderEpisodesSkeleton() {
+        return `
+            <div class="glass rounded-xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div class="flex items-center gap-2">
+                        <div class="h-4 w-16 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <div class="h-8 w-8 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    ${Array(3).fill().map(() => `
+                        <div class="flex flex-col md:flex-row gap-4 p-4">
+                            <div class="w-full md:w-48 h-28 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                            <div class="flex-1 space-y-2">
+                                <div class="h-5 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-3 w-full bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-3 w-5/6 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <div class="inline-block h-10 w-40 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                </div>
+            </div>
+        `;
     }
 
-    /**
-     * Extracts text content from HTML string
-     * @param {string} content - HTML content string
-     * @returns {string} Plain text content
-     */
+    renderCharactersSkeleton() {
+        return `
+            <div class="glass rounded-xl p-6">
+                <div class="h-6 w-48 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    ${Array(6).fill().map(() => `
+                        <div class="text-center">
+                            <div class="w-full h-40 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse mb-2"></div>
+                            <div class="h-4 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mx-auto"></div>
+                            <div class="h-3 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mx-auto mt-1"></div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <div class="inline-block h-10 w-48 bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Utility methods
+    extractImageFromContent(content) {
+        if (!content) return null;
+        const imgMatch = content.match(/src="([^"]+)"/);
+        return imgMatch?.[1] || null;
+    }
+
     extractTextFromContent(content) {
+        if (!content) return '';
         const div = document.createElement('div');
         div.innerHTML = content;
         return div.textContent || div.innerText || '';
     }
 
-    /**
-     * Truncates synopsis text to specified length
-     * @param {string} text - Synopsis text
-     * @param {number} length - Maximum length before truncation
-     * @returns {string} Truncated text with ellipsis if needed
-     */
-    truncateSynopsis(text, length) {
-        if (text.length <= length) return text;
+    truncateText(text, length) {
+        if (!text || text.length <= length) return text;
         return text.substring(0, length) + '...';
     }
 
-    /**
-     * Formats number with commas
-     * @param {number} num - Number to format
-     * @returns {string} Formatted number string
-     */
     formatNumber(num) {
+        if (!num) return '0';
         return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 }
 
-if (document.getElementById('animeinfo-container')) {
-    new AnimeInfo();
-}
+// Initialize if container exists
+    if (document.querySelector('#animeinfo-container')) {
+        new AnimeInfo();
+    }
