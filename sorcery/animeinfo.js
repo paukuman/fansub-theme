@@ -19,223 +19,231 @@
  * @property {HTMLElement} container - DOM container for rendering
  */
 class AnimeInfo {
-  /**
-   * Constructor - Initializes the AnimeInfo instance
-   * @constructor
-   */
-  constructor() {
-    this.blogID = document.querySelector('meta[name="blogID"]').content;
-    this.postID = document.querySelector('meta[name="postID"]').content;
-    this.malID = null;
-    this.animeData = null;
-    this.characterData = null;
-    this.episodeData = null;
-    this.picturesData = null;
-    this.container = document.getElementById('animeinfo-container');
-    this.init();
-  }
-
-  /**
-   * Initializes the anime info fetching and rendering process
-   * @async
-   */
-  async init() {
-    try {
-      await this.fetchAnimeInfo();
-      this.extractMalID();
-      
-      if (!this.malID) {
-        throw new Error('MAL ID not found in anime info');
-      }
-      
-      await this.fetchJikanAnimeData();
-      await this.fetchCharacterData();
-      await this.fetchEpisodeData();
-      await this.fetchPicturesData();
-      
-      this.render();
-      this.setupBackdrop();
-      
-    } catch (error) {
-      console.error('Error initializing AnimeInfo:', error);
-      this.showError('Failed to load anime information. Please try again later.');
+    /**
+     * Constructor - Initializes the AnimeInfo instance
+     * @constructor
+     */
+    constructor() {
+        this.blogID = document.querySelector('meta[name="blogID"]').content;
+        this.postID = document.querySelector('meta[name="postID"]').content;
+        this.malID = null;
+        this.animeData = null;
+        this.characterData = null;
+        this.episodeData = null;
+        this.picturesData = null;
+        this.container = document.getElementById('animeinfo-container');
+        this.init();
     }
-  }
 
-  /**
-   * Fetches anime pictures data from Jikan API for backdrop
-   * @async
-   */
-  async fetchPicturesData() {
-    try {
-      const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/pictures`);
-      if (!response.ok) throw new Error('Pictures API response was not ok');
-      
-      const data = await response.json();
-      this.picturesData = data.data || [];
-    } catch (error) {
-      console.error('Error fetching pictures data:', error);
-      this.picturesData = [];
+    /**
+     * Initializes the anime info fetching and rendering process
+     * @async
+     */
+    async init() {
+        try {
+            await this.fetchAnimeInfo();
+
+            // Second protection: Check if this is an animeinfo page
+            const pageType = this.animeData.categories?.find(cat => cat.startsWith('page:'))?.split(':')[1];
+            if (pageType !== 'animeinfo') {
+                console.log('Not an animeinfo page - script not executed');
+                return;
+            }
+
+            this.extractMalID();
+
+            if (!this.malID) {
+                throw new Error('MAL ID not found in anime info');
+            }
+
+            await this.fetchJikanAnimeData();
+            await this.fetchCharacterData();
+            await this.fetchEpisodeData();
+            await this.fetchPicturesData();
+
+            this.render();
+            this.setupBackdrop();
+
+        } catch (error) {
+            console.error('Error initializing AnimeInfo:', error);
+            this.showError('Failed to load anime information. Please try again later.');
+        }
     }
-  }
 
-  /**
-   * Sets up the anime backdrop image from pictures data
-   */
-  setupBackdrop() {
-    const backdropContainer = document.querySelector('.backdrop-image');
-    if (!backdropContainer) return;
-    
-    if (this.picturesData && this.picturesData.length > 0) {
-      const randomImage = this.picturesData[Math.floor(Math.random() * this.picturesData.length)];
-      const imageUrl = randomImage.jpg?.large_image_url || randomImage.jpg?.image_url;
-      
-      if (imageUrl) {
-        backdropContainer.className = 'backdrop-image w-full h-full';
-        backdropContainer.style.background = `
+    /**
+     * Fetches anime pictures data from Jikan API for backdrop
+     * @async
+     */
+    async fetchPicturesData() {
+        try {
+            const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/pictures`);
+            if (!response.ok) throw new Error('Pictures API response was not ok');
+
+            const data = await response.json();
+            this.picturesData = data.data || [];
+        } catch (error) {
+            console.error('Error fetching pictures data:', error);
+            this.picturesData = [];
+        }
+    }
+
+    /**
+     * Sets up the anime backdrop image from pictures data
+     */
+    setupBackdrop() {
+        const backdropContainer = document.querySelector('.backdrop-image');
+        if (!backdropContainer) return;
+
+        if (this.picturesData && this.picturesData.length > 0) {
+            const randomImage = this.picturesData[Math.floor(Math.random() * this.picturesData.length)];
+            const imageUrl = randomImage.jpg?.large_image_url || randomImage.jpg?.image_url;
+
+            if (imageUrl) {
+                backdropContainer.className = 'backdrop-image w-full h-full';
+                backdropContainer.style.background = `
           linear-gradient(to bottom right, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.3)),
           url('${imageUrl}')
         `;
-        backdropContainer.style.backgroundSize = 'cover';
-        backdropContainer.style.backgroundPosition = 'center';
-        backdropContainer.style.backgroundRepeat = 'no-repeat';
-        backdropContainer.innerHTML = '';
-      }
+                backdropContainer.style.backgroundSize = 'cover';
+                backdropContainer.style.backgroundPosition = 'center';
+                backdropContainer.style.backgroundRepeat = 'no-repeat';
+                backdropContainer.innerHTML = '';
+            }
+        }
     }
-  }
 
-  /**
-   * Fetches basic anime info from custom API
-   * @async
-   * @throws {Error} When network response is not ok or API returns error status
-   */
-  async fetchAnimeInfo() {
-    try {
-      const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&postID=${this.postID}`);
-      if (!response.ok) throw new Error('Network response was not ok');
-      
-      const data = await response.json();
-      if (data.status !== 200) throw new Error('API returned non-success status');
-      
-      this.animeData = data.response.entry;
-    } catch (error) {
-      console.error('Error fetching anime info:', error);
-      throw error;
+    /**
+     * Fetches basic anime info from custom API
+     * @async
+     * @throws {Error} When network response is not ok or API returns error status
+     */
+    async fetchAnimeInfo() {
+        try {
+            const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&postID=${this.postID}`);
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+            if (data.status !== 200) throw new Error('API returned non-success status');
+
+            this.animeData = data.response.entry;
+        } catch (error) {
+            console.error('Error fetching anime info:', error);
+            throw error;
+        }
     }
-  }
 
-  /**
-   * Extracts MAL ID from anime categories
-   */
-  extractMalID() {
-    try {
-      const malCategory = this.animeData.categories.find(cat => cat.startsWith('mal_id:'));
-      if (malCategory) {
-        this.malID = malCategory.split(':')[1];
-      }
-    } catch (error) {
-      console.error('Error extracting MAL ID:', error);
-      throw error;
+    /**
+     * Extracts MAL ID from anime categories
+     */
+    extractMalID() {
+        try {
+            const malCategory = this.animeData.categories.find(cat => cat.startsWith('mal_id:'));
+            if (malCategory) {
+                this.malID = malCategory.split(':')[1];
+            }
+        } catch (error) {
+            console.error('Error extracting MAL ID:', error);
+            throw error;
+        }
     }
-  }
 
-  /**
-   * Fetches detailed anime data from Jikan API
-   * @async
-   * @throws {Error} When Jikan API response is not ok or no data returned
-   */
-  async fetchJikanAnimeData() {
-    try {
-      const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/full`);
-      if (!response.ok) throw new Error('Jikan API response was not ok');
-      
-      const data = await response.json();
-      if (!data.data) throw new Error('No data returned from Jikan API');
-      
-      this.animeData = { ...this.animeData, ...data.data };
-    } catch (error) {
-      console.error('Error fetching Jikan anime data:', error);
-      throw error;
+    /**
+     * Fetches detailed anime data from Jikan API
+     * @async
+     * @throws {Error} When Jikan API response is not ok or no data returned
+     */
+    async fetchJikanAnimeData() {
+        try {
+            const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/full`);
+            if (!response.ok) throw new Error('Jikan API response was not ok');
+
+            const data = await response.json();
+            if (!data.data) throw new Error('No data returned from Jikan API');
+
+            this.animeData = { ...this.animeData, ...data.data };
+        } catch (error) {
+            console.error('Error fetching Jikan anime data:', error);
+            throw error;
+        }
     }
-  }
 
-  /**
-   * Fetches character data from Jikan API
-   * @async
-   */
-  async fetchCharacterData() {
-    try {
-      const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/characters`);
-      if (!response.ok) throw new Error('Jikan characters API response was not ok');
-      
-      const data = await response.json();
-      this.characterData = data.data || [];
-    } catch (error) {
-      console.error('Error fetching character data:', error);
-      this.characterData = [];
+    /**
+     * Fetches character data from Jikan API
+     * @async
+     */
+    async fetchCharacterData() {
+        try {
+            const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/characters`);
+            if (!response.ok) throw new Error('Jikan characters API response was not ok');
+
+            const data = await response.json();
+            this.characterData = data.data || [];
+        } catch (error) {
+            console.error('Error fetching character data:', error);
+            this.characterData = [];
+        }
     }
-  }
 
-  /**
-   * Fetches episode data from custom API
-   * @async
-   */
-  async fetchEpisodeData() {
-    try {
-      const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode`);
-      if (!response.ok) throw new Error('Episode API response was not ok');
-      
-      const data = await response.json();
-      this.episodeData = data.entries || [];
-    } catch (error) {
-      console.error('Error fetching episode data:', error);
-      this.episodeData = [];
+    /**
+     * Fetches episode data from custom API
+     * @async
+     */
+    async fetchEpisodeData() {
+        try {
+            const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode`);
+            if (!response.ok) throw new Error('Episode API response was not ok');
+
+            const data = await response.json();
+            this.episodeData = data.entries || [];
+        } catch (error) {
+            console.error('Error fetching episode data:', error);
+            this.episodeData = [];
+        }
     }
-  }
 
-  /**
-   * Displays error message in the container
-   * @param {string} message - Error message to display
-   */
-  showError(message) {
-    this.container.innerHTML = `
+    /**
+     * Displays error message in the container
+     * @param {string} message - Error message to display
+     */
+    showError(message) {
+        this.container.innerHTML = `
       <div class="glass rounded-xl p-6 text-red-500">
         <i class="fas fa-exclamation-triangle mr-2"></i>
         ${message}
       </div>
     `;
-  }
+    }
 
-  /**
-   * Renders all anime information sections
-   */
-  render() {
-    this.container.innerHTML = `
+    /**
+     * Renders all anime information sections
+     */
+    render() {
+        this.container.innerHTML = `
       ${this.renderHeader()}
       ${this.renderSynopsis()}
       ${this.renderEpisodes()}
       ${this.renderCharacters()}
     `;
-  }
+    }
 
-  /**
-   * Renders the anime header section with poster and basic info
-   * @returns {string} HTML string for the header section
-   */
-  renderHeader() {
-    const englishTitle = this.animeData.title_english || this.animeData.title;
-    const japaneseTitle = this.animeData.title_japanese || '';
-    const imageUrl = this.animeData.images?.jpg?.large_image_url || 'https://via.placeholder.com/300x400';
-    const score = this.animeData.score || this.extractScoreFromCategories();
-    const rank = this.animeData.rank ? `Rank #${this.animeData.rank}` : '';
-    const members = this.animeData.members ? `${this.formatNumber(this.animeData.members)} Members` : '';
-    const favorites = this.animeData.favorites ? `${this.formatNumber(this.animeData.favorites)} Favorites` : '';
-    const type = this.animeData.type || '';
-    const airedDate = this.animeData.aired?.string || '';
-    const duration = this.animeData.duration || '';
-    const genres = this.animeData.genres?.map(genre => genre.name) || [];
+    /**
+     * Renders the anime header section with poster and basic info
+     * @returns {string} HTML string for the header section
+     */
+    renderHeader() {
+        const englishTitle = this.animeData.title_english || this.animeData.title;
+        const japaneseTitle = this.animeData.title_japanese || '';
+        const imageUrl = this.animeData.images?.jpg?.large_image_url || 'https://via.placeholder.com/300x400';
+        const score = this.animeData.score || this.extractScoreFromCategories();
+        const rank = this.animeData.rank ? `Rank #${this.animeData.rank}` : '';
+        const members = this.animeData.members ? `${this.formatNumber(this.animeData.members)} Members` : '';
+        const favorites = this.animeData.favorites ? `${this.formatNumber(this.animeData.favorites)} Favorites` : '';
+        const type = this.animeData.type || '';
+        const airedDate = this.animeData.aired?.string || '';
+        const duration = this.animeData.duration || '';
+        const genres = this.animeData.genres?.map(genre => genre.name) || [];
 
-    return `
+        return `
       <div class="glass rounded-xl p-6">
         <!-- Mobile layout -->
         <div class="md:hidden mobile-poster-row">
@@ -365,16 +373,16 @@ class AnimeInfo {
         </div>
       </div>
     `;
-  }
+    }
 
-  /**
-   * Renders the anime synopsis section
-   * @returns {string} HTML string for the synopsis section
-   */
-  renderSynopsis() {
-    if (!this.animeData.synopsis) return '';
-    
-    return `
+    /**
+     * Renders the anime synopsis section
+     * @returns {string} HTML string for the synopsis section
+     */
+    renderSynopsis() {
+        if (!this.animeData.synopsis) return '';
+
+        return `
       <div class="glass rounded-xl p-6">
         <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Synopsis</h2>
         <p class="text-gray-700 dark:text-gray-300">
@@ -382,16 +390,16 @@ class AnimeInfo {
         </p>
       </div>
     `;
-  }
+    }
 
-  /**
-   * Renders the episodes section
-   * @returns {string} HTML string for the episodes section
-   */
-  renderEpisodes() {
-    if (!this.episodeData || this.episodeData.length === 0) return '';
-    
-    return `
+    /**
+     * Renders the episodes section
+     * @returns {string} HTML string for the episodes section
+     */
+    renderEpisodes() {
+        if (!this.episodeData || this.episodeData.length === 0) return '';
+
+        return `
       <div class="glass rounded-xl p-6">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-bold text-primary-700 dark:text-primary-400">Episodes</h2>
@@ -416,26 +424,26 @@ class AnimeInfo {
         ` : ''}
       </div>
     `;
-  }
-
-  /**
-   * Renders a single episode item
-   * @param {Object} episode - Episode data object
-   * @returns {string} HTML string for an episode item
-   */
-  renderEpisodeItem(episode) {
-    const episodeNumber = this.extractEpisodeNumber(episode.categories);
-    const quality = this.extractQuality(episode.categories);
-    const resolution = this.extractResolution(episode.categories);
-    const date = episode.published?.relative || episode.published?.default || '';
-    
-    let imageUrl = 'https://via.placeholder.com/300x200';
-    const imgMatch = episode.content.match(/src="([^"]+)"/);
-    if (imgMatch && imgMatch[1]) {
-      imageUrl = imgMatch[1];
     }
 
-    return `
+    /**
+     * Renders a single episode item
+     * @param {Object} episode - Episode data object
+     * @returns {string} HTML string for an episode item
+     */
+    renderEpisodeItem(episode) {
+        const episodeNumber = this.extractEpisodeNumber(episode.categories);
+        const quality = this.extractQuality(episode.categories);
+        const resolution = this.extractResolution(episode.categories);
+        const date = episode.published?.relative || episode.published?.default || '';
+
+        let imageUrl = 'https://via.placeholder.com/300x200';
+        const imgMatch = episode.content.match(/src="([^"]+)"/);
+        if (imgMatch && imgMatch[1]) {
+            imageUrl = imgMatch[1];
+        }
+
+        return `
       <div class="flex flex-col md:flex-row gap-4 p-4 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
         <div class="w-full md:w-48 flex-shrink-0">
           <div class="episode-thumbnail w-full h-full overflow-hidden rounded-lg">
@@ -465,22 +473,22 @@ class AnimeInfo {
         </div>
       </div>
     `;
-  }
+    }
 
-  /**
-   * Renders the characters section
-   * @returns {string} HTML string for the characters section
-   */
-  renderCharacters() {
-    if (!this.characterData || this.characterData.length === 0) return '';
-    
-    const mainCharacters = this.characterData
-      .filter(char => char.role === 'Main')
-      .slice(0, 6);
+    /**
+     * Renders the characters section
+     * @returns {string} HTML string for the characters section
+     */
+    renderCharacters() {
+        if (!this.characterData || this.characterData.length === 0) return '';
 
-    if (mainCharacters.length === 0) return '';
+        const mainCharacters = this.characterData
+            .filter(char => char.role === 'Main')
+            .slice(0, 6);
 
-    return `
+        if (mainCharacters.length === 0) return '';
+
+        return `
       <div class="glass rounded-xl p-6">
         <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Characters &amp; Cast</h2>
 
@@ -497,18 +505,18 @@ class AnimeInfo {
         ` : ''}
       </div>
     `;
-  }
+    }
 
-  /**
-   * Renders a single character item
-   * @param {Object} character - Character data object
-   * @returns {string} HTML string for a character item
-   */
-  renderCharacterItem(character) {
-    const charImage = character.character.images?.jpg?.image_url || 'https://via.placeholder.com/150';
-    const seiyuu = character.voice_actors?.find(va => va.language === 'Japanese');
-    
-    return `
+    /**
+     * Renders a single character item
+     * @param {Object} character - Character data object
+     * @returns {string} HTML string for a character item
+     */
+    renderCharacterItem(character) {
+        const charImage = character.character.images?.jpg?.image_url || 'https://via.placeholder.com/150';
+        const seiyuu = character.voice_actors?.find(va => va.language === 'Japanese');
+
+        return `
       <div class="text-center">
         <div class="cast-card w-full h-48 bg-gradient-to-br from-gray-400 to-gray-600 mb-2 overflow-hidden rounded-lg">
           <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
@@ -517,88 +525,90 @@ class AnimeInfo {
         ${seiyuu ? `<p class="text-sm text-gray-600 dark:text-gray-400">${seiyuu.person.name}</p>` : ''}
       </div>
     `;
-  }
+    }
 
-  // Helper methods
+    // Helper methods
 
-  /**
-   * Extracts score from anime categories
-   * @returns {string|null} Score value or null if not found
-   */
-  extractScoreFromCategories() {
-    const scoreCat = this.animeData.categories?.find(cat => cat.startsWith('rate:'));
-    return scoreCat ? scoreCat.split(':')[1] : null;
-  }
+    /**
+     * Extracts score from anime categories
+     * @returns {string|null} Score value or null if not found
+     */
+    extractScoreFromCategories() {
+        const scoreCat = this.animeData.categories?.find(cat => cat.startsWith('rate:'));
+        return scoreCat ? scoreCat.split(':')[1] : null;
+    }
 
-  /**
-   * Extracts season number from anime categories
-   * @returns {string|null} Season number or null if not found
-   */
-  extractSeasonFromCategories() {
-    const seasonCat = this.animeData.categories?.find(cat => cat.startsWith('season:'));
-    return seasonCat ? seasonCat.split(':')[1] : null;
-  }
+    /**
+     * Extracts season number from anime categories
+     * @returns {string|null} Season number or null if not found
+     */
+    extractSeasonFromCategories() {
+        const seasonCat = this.animeData.categories?.find(cat => cat.startsWith('season:'));
+        return seasonCat ? seasonCat.split(':')[1] : null;
+    }
 
-  /**
-   * Extracts episode number from episode categories
-   * @param {Array} categories - Episode categories array
-   * @returns {string|null} Episode number or null if not found
-   */
-  extractEpisodeNumber(categories) {
-    const epCat = categories?.find(cat => cat.startsWith('episode:'));
-    return epCat ? epCat.split(':')[1] : null;
-  }
+    /**
+     * Extracts episode number from episode categories
+     * @param {Array} categories - Episode categories array
+     * @returns {string|null} Episode number or null if not found
+     */
+    extractEpisodeNumber(categories) {
+        const epCat = categories?.find(cat => cat.startsWith('episode:'));
+        return epCat ? epCat.split(':')[1] : null;
+    }
 
-  /**
-   * Extracts quality from episode categories
-   * @param {Array} categories - Episode categories array
-   * @returns {string|null} Quality value or null if not found
-   */
-  extractQuality(categories) {
-    const qualityCat = categories?.find(cat => cat.startsWith('quality:'));
-    return qualityCat ? qualityCat.split(':')[1] : null;
-  }
+    /**
+     * Extracts quality from episode categories
+     * @param {Array} categories - Episode categories array
+     * @returns {string|null} Quality value or null if not found
+     */
+    extractQuality(categories) {
+        const qualityCat = categories?.find(cat => cat.startsWith('quality:'));
+        return qualityCat ? qualityCat.split(':')[1] : null;
+    }
 
-  /**
-   * Extracts resolution from episode categories
-   * @param {Array} categories - Episode categories array
-   * @returns {string|null} Resolution value or null if not found
-   */
-  extractResolution(categories) {
-    const resCat = categories?.find(cat => cat.startsWith('resolution:'));
-    return resCat ? resCat.split(':')[1].replace(/\|/g, ', ') : null;
-  }
+    /**
+     * Extracts resolution from episode categories
+     * @param {Array} categories - Episode categories array
+     * @returns {string|null} Resolution value or null if not found
+     */
+    extractResolution(categories) {
+        const resCat = categories?.find(cat => cat.startsWith('resolution:'));
+        return resCat ? resCat.split(':')[1].replace(/\|/g, ', ') : null;
+    }
 
-  /**
-   * Extracts text content from HTML string
-   * @param {string} content - HTML content string
-   * @returns {string} Plain text content
-   */
-  extractTextFromContent(content) {
-    const div = document.createElement('div');
-    div.innerHTML = content;
-    return div.textContent || div.innerText || '';
-  }
+    /**
+     * Extracts text content from HTML string
+     * @param {string} content - HTML content string
+     * @returns {string} Plain text content
+     */
+    extractTextFromContent(content) {
+        const div = document.createElement('div');
+        div.innerHTML = content;
+        return div.textContent || div.innerText || '';
+    }
 
-  /**
-   * Truncates synopsis text to specified length
-   * @param {string} text - Synopsis text
-   * @param {number} length - Maximum length before truncation
-   * @returns {string} Truncated text with ellipsis if needed
-   */
-  truncateSynopsis(text, length) {
-    if (text.length <= length) return text;
-    return text.substring(0, length) + '...';
-  }
+    /**
+     * Truncates synopsis text to specified length
+     * @param {string} text - Synopsis text
+     * @param {number} length - Maximum length before truncation
+     * @returns {string} Truncated text with ellipsis if needed
+     */
+    truncateSynopsis(text, length) {
+        if (text.length <= length) return text;
+        return text.substring(0, length) + '...';
+    }
 
-  /**
-   * Formats number with commas
-   * @param {number} num - Number to format
-   * @returns {string} Formatted number string
-   */
-  formatNumber(num) {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
+    /**
+     * Formats number with commas
+     * @param {number} num - Number to format
+     * @returns {string} Formatted number string
+     */
+    formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
 }
 
-new AnimeInfo();
+if (document.getElementById('animeinfo-container')) {
+    new AnimeInfo();
+}
