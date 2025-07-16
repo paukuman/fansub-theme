@@ -215,6 +215,7 @@ class AnimeInfo {
             const pageType = this.animeData.categories?.find(cat => cat.startsWith('page:'))?.split(':')[1];
             if (pageType !== 'animeinfo') {
                 console.log('Not an animeinfo page - script not executed');
+                this.container.remove()
                 return;
             }
 
