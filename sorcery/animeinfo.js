@@ -217,7 +217,7 @@ class AnimeInfo {
         const epsMain = document.createElement('main');
         epsMain.classList.add('flex-1', 'space-y-6');
         epsMain.setAttribute('id', 'episode-container');
-        this.container.innerHTML = '';
+        this.container.replaceWith(epsMain);
         return;
       } else if (!pageType || pageType !== 'episode' || pageType !== 'animeinfo') {
         this.container.innerHTML = '';
