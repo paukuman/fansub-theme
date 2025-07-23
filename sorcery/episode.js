@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', async function() {
+async function startEps() {
     // Get blogID and postID from meta tags
     const blogID = document.querySelector('meta[name="blogID"]').content;
     const postID = document.querySelector('meta[name="postID"]').content;
@@ -7,40 +7,40 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Fetch initial episode data
         const episodeResponse = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${blogID}&postID=${postID}`);
         const episodeData = await episodeResponse.json();
-        
+
         if (episodeData.status !== 200) {
             throw new Error('Failed to fetch episode data');
         }
 
         const entry = episodeData.response.entry;
-        
+
         // Extract mal_id from categories
         const malId = entry.categories.find(cat => cat.startsWith('mal_id:')).split(':')[1];
-        
+
         // Fetch episode list and anime info in parallel
         const [episodesResponse, animeInfoResponse] = await Promise.all([
             fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${blogID}&mal_id=${malId}&page=episode`),
             fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${blogID}&mal_id=${malId}&page=animeinfo`)
         ]);
-        
+
         const episodesData = await episodesResponse.json();
         const animeInfoData = await animeInfoResponse.json();
-        
+
         if (!episodesData.entries || !animeInfoData.response.entries) {
             throw new Error('Failed to fetch additional data');
         }
 
         // Parse current episode number
         const currentEpisode = entry.categories.find(cat => cat.startsWith('episode:')).split(':')[1];
-        
+
         // Parse XML content
         const parser = new DOMParser();
         const contentDoc = parser.parseFromString(entry.content, 'text/html');
-        
+
         // Extract streamList and downloadList
         const streamList = contentDoc.querySelector('streamList');
         const downloadList = contentDoc.querySelector('downloadList');
-        
+
         // Update the page with all the data
         updatePage({
             entry,
@@ -51,13 +51,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             streamList,
             downloadList
         });
-        
+
     } catch (error) {
         console.error('Error loading data:', error);
         // Show error message to user
         showToast('Failed to load data. Please try again later.', 'error');
     }
-});
+};
 
 function updatePage(data) {
     const {
@@ -69,16 +69,16 @@ function updatePage(data) {
         streamList,
         downloadList
     } = data;
-    
+
     // 1. Update Episode Title
     const episodeTitleDiv = document.querySelector('main > div:first-child');
     episodeTitleDiv.querySelector('h1').textContent = animeInfo.title;
     episodeTitleDiv.querySelector('h2').textContent = `Episode ${currentEpisode}: ${entry.title}`;
-    
+
     // 2. Update Server Selection
     const serverSelect = document.querySelector('.glass-select');
     serverSelect.innerHTML = ''; // Clear existing options
-    
+
     if (streamList) {
         const servers = streamList.querySelectorAll('server');
         servers.forEach(server => {
@@ -87,7 +87,7 @@ function updatePage(data) {
             const option = document.createElement('option');
             option.textContent = `${name} (${type === 'embed/iframe' ? 'Embed' : 'Direct'})`;
             option.dataset.type = type;
-            
+
             if (type === 'embed/iframe') {
                 option.dataset.url = server.querySelector('url').textContent;
             } else {
@@ -99,15 +99,15 @@ function updatePage(data) {
                     }))
                 );
             }
-            
+
             serverSelect.appendChild(option);
         });
-        
+
         // Add event listener for server change
-        serverSelect.addEventListener('change', function() {
+        serverSelect.addEventListener('change', function () {
             const selectedOption = this.options[this.selectedIndex];
             const videoContainer = document.querySelector('.video-container');
-            
+
             if (selectedOption.dataset.type === 'embed/iframe') {
                 // Embed/Iframe type
                 videoContainer.innerHTML = `<iframe src="${selectedOption.dataset.url}" allowfullscreen></iframe>`;
@@ -119,15 +119,15 @@ function updatePage(data) {
                     type: 'video/mp4',
                     size: quality.text
                 }));
-                
+
                 videoContainer.innerHTML = `
                     <video id="player" playsinline controls>
-                        ${sources.map(source => 
-                            `<source src="${source.src}" type="${source.type}" size="${source.size}">`
-                        ).join('')}
+                        ${sources.map(source =>
+                    `<source src="${source.src}" type="${source.type}" size="${source.size}">`
+                ).join('')}
                     </video>
                 `;
-                
+
                 // Initialize Plyr player
                 const player = new Plyr('#player', {
                     quality: {
@@ -138,16 +138,16 @@ function updatePage(data) {
                 });
             }
         });
-        
+
         // Trigger change event to load first server
         serverSelect.dispatchEvent(new Event('change'));
     }
-    
+
     // 3. Update Download Box with Toast functionality
     const downloadBox = document.querySelector('.download-box');
     const downloadGrid = downloadBox.querySelector('.grid');
     downloadGrid.innerHTML = ''; // Clear existing download options
-    
+
     if (downloadList) {
         const downloads = downloadList.querySelectorAll('download');
         downloads.forEach(download => {
@@ -157,29 +157,29 @@ function updatePage(data) {
                 name: data.querySelector('text').textContent,
                 url: data.querySelector('url').textContent
             }));
-            
+
             const downloadLink = document.createElement('button');
             downloadLink.className = 'p-2 text-center bg-primary-100 dark:bg-primary-900 rounded hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors';
-            
+
             const qualityDiv = document.createElement('div');
             qualityDiv.className = 'font-medium';
             qualityDiv.textContent = quality;
-            
+
             const sizeDiv = document.createElement('div');
             sizeDiv.className = 'text-xs';
             sizeDiv.textContent = `(${size})`;
-            
+
             downloadLink.appendChild(qualityDiv);
             downloadLink.appendChild(sizeDiv);
-            
+
             downloadLink.addEventListener('click', () => {
                 showDownloadOptions(urls, `${quality} (${size})`);
             });
-            
+
             downloadGrid.appendChild(downloadLink);
         });
     }
-    
+
     // 4. Update Episode Navigation with Select Element
     const episodeNav = document.querySelector('main > div:nth-last-child(3)');
     episodeNav.innerHTML = `
@@ -193,39 +193,39 @@ function updatePage(data) {
             </select>
         </div>
     `;
-    
+
     // Add event listener for episode select
     const episodeSelect = document.querySelector('.episode-select');
-    episodeSelect.addEventListener('change', function() {
+    episodeSelect.addEventListener('change', function () {
         window.location.href = this.value;
     });
-    
+
     // 5. Update Anime Info
     const animeInfoDiv = document.querySelector('main > div:last-child');
     const animeTitle = animeInfoDiv.querySelector('h3');
     const animeGenres = animeInfoDiv.querySelector('.flex.flex-wrap.gap-1');
     const animeRating = animeInfoDiv.querySelector('.flex.items-center.text-xs');
-    
+
     animeTitle.textContent = animeInfo.title;
     animeGenres.innerHTML = '';
-    
+
     // Add genres from categories
-    const genreCategories = animeInfo.categories.filter(cat => 
-        !cat.startsWith('mal_id:') && 
-        !cat.startsWith('page:') && 
-        !cat.startsWith('rate:') && 
-        !cat.startsWith('season:') && 
-        !cat.startsWith('status:') && 
+    const genreCategories = animeInfo.categories.filter(cat =>
+        !cat.startsWith('mal_id:') &&
+        !cat.startsWith('page:') &&
+        !cat.startsWith('rate:') &&
+        !cat.startsWith('season:') &&
+        !cat.startsWith('status:') &&
         !cat.startsWith('type:')
     );
-    
+
     genreCategories.forEach(genre => {
         const span = document.createElement('span');
         span.className = 'text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
         span.textContent = genre;
         animeGenres.appendChild(span);
     });
-    
+
     // Update rating
     const rating = animeInfo.categories.find(cat => cat.startsWith('rate:')).split(':')[1];
     animeRating.querySelector('span:first-child').textContent = rating;
@@ -234,14 +234,13 @@ function updatePage(data) {
 // Toast notification function
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white ${
-        type === 'error' ? 'bg-red-500' : 
-        type === 'success' ? 'bg-green-500' : 
-        'bg-blue-500'
-    }`;
+    toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white ${type === 'error' ? 'bg-red-500' :
+            type === 'success' ? 'bg-green-500' :
+                'bg-blue-500'
+        }`;
     toast.textContent = message;
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.remove();
     }, 3000);
@@ -266,11 +265,11 @@ function showDownloadOptions(servers, title) {
             </div>
         </div>
     `;
-    
+
     modal.querySelector('button').addEventListener('click', () => {
         modal.remove();
     });
-    
+
     document.body.appendChild(modal);
 }
 
@@ -281,7 +280,7 @@ function loadPlyr() {
         plyrCSS.rel = 'stylesheet';
         plyrCSS.href = 'https://cdn.plyr.io/3.7.8/plyr.css';
         document.head.appendChild(plyrCSS);
-        
+
         const plyrJS = document.createElement('script');
         plyrJS.src = 'https://cdn.plyr.io/3.7.8/plyr.js';
         plyrJS.onload = () => {
@@ -292,5 +291,8 @@ function loadPlyr() {
     }
 }
 
-// Initialize Plyr when page loads
-loadPlyr();
+(async function () {
+    startEps();
+    // Initialize Plyr when page loads
+    loadPlyr();
+})()
