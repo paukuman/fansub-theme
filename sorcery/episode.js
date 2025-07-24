@@ -386,7 +386,9 @@ class AnimeEpisodePlayer {
 }
 
 // Initialize the player
-document.addEventListener('DOMContentLoaded', () => {
+/*document.addEventListener('DOMContentLoaded', () => {
   const player = new AnimeEpisodePlayer();
   player.init();
-});
+});*/
+
+export default AnimeEpisodePlayer;
