@@ -220,22 +220,6 @@ class AnimeInfo {
         epsMain.classList.add('flex-1', 'space-y-6');
         epsMain.setAttribute('id', 'episode-container');
         this.container.replaceWith(epsMain);
-        const moduleUrl = 'https://cdn.jsdelivr.net/gh/paukuman/fansub-theme@main/sorcery/episode.js';
-
-        async function loadPlayer() {
-          try {
-            // Perhatikan bahwa kita menambahkan timestamp untuk menghindari cache
-            const { default: AnimeEpisodePlayer } = await import(moduleUrl + '?t=' + Date.now());
-
-            // Sekarang Anda bisa menggunakan kelasnya
-            const player = new AnimeEpisodePlayer();
-            player.init();
-          } catch (error) {
-            console.error('Gagal memuat modul:', error);
-          }
-        }
-
-        loadPlayer();
 
         return;
       } else if (!pageType || pageType !== 'episode' || pageType !== 'animeinfo') {
