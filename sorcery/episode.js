@@ -1,17 +1,23 @@
 class AnimeEpisodePlayer {
     constructor() {
-        this.blogID = document.querySelector('meta[name="blogID"]').content;
-        this.postID = document.querySelector('meta[name="postID"]').content;
-        this.mainElement = document.querySelector("main");
+        this.blogID = document.querySelector('meta[name="blogID"]')?.content;
+        this.postID = document.querySelector('meta[name="postID"]')?.content;
         this.currentEpisode = null;
         this.episodeData = null;
         this.animeInfo = null;
         this.episodesList = [];
         this.player = null;
+        this.observer = null;
+        this.isInitialized = false;
     }
 
     async init() {
         try {
+            // Cek pertama kali saat inisialisasi
+            this.checkMainElement();
+
+            // Setup observer untuk memantau perubahan DOM
+            this.setupMutationObserver();
             this.renderSkeleton();
             await this.loadData();
             this.updatePage();
@@ -21,7 +27,43 @@ class AnimeEpisodePlayer {
             this.showToast('Failed to load data. Please try again later.', 'error');
         }
     }
+    setupMutationObserver() {
+        this.observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (!this.isInitialized) {
+                    this.checkMainElement();
+                }
+            });
+        });
 
+        // Mulai mengamati seluruh dokumen untuk penambahan node
+        this.observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    checkMainElement() {
+        const mainElement = document.getElementById('episode-container');
+
+        if (mainElement && !this.isInitialized) {
+            this.mainElement = mainElement;
+            this.isInitialized = true;
+            this.observer.disconnect(); // Berhenti mengamati setelah ditemukan
+
+            // Mulai inisialisasi player
+            this.renderSkeleton();
+            this.loadData()
+                .then(() => {
+                    this.updatePage();
+                    this.loadPlyr();
+                })
+                .catch((error) => {
+                    console.error('Error initializing player:', error);
+                    this.showToast('Failed to load data. Please try again later.', 'error');
+                });
+        }
+    }
     renderSkeleton() {
         this.mainElement.innerHTML = this.getSkeletonHTML();
     }
@@ -359,8 +401,8 @@ class AnimeEpisodePlayer {
     showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white ${type === 'error' ? 'bg-red-500' :
-                type === 'success' ? 'bg-green-500' :
-                    'bg-blue-500'
+            type === 'success' ? 'bg-green-500' :
+                'bg-blue-500'
             }`;
         toast.textContent = message;
         document.body.appendChild(toast);
@@ -380,6 +422,14 @@ class AnimeEpisodePlayer {
             const plyrJS = document.createElement('script');
             plyrJS.src = 'https://cdn.plyr.io/3.7.8/plyr.js';
             document.head.appendChild(plyrJS);
+        }
+    }
+    destroy() {
+        if (this.player) {
+            this.player.destroy();
+        }
+        if (this.observer) {
+            this.observer.disconnect();
         }
     }
 }
