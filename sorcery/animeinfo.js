@@ -220,7 +220,7 @@ class AnimeInfo {
         epsMain.classList.add('flex-1', 'space-y-6');
         epsMain.setAttribute('id', 'episode-container');
         this.container.replaceWith(epsMain);
-        const moduleUrl = 'https://cdn.jsdelivr.net/gh/paukuman/fansub-theme@refs/heads/main/sorcery/episode.js';
+        const moduleUrl = 'https://cdn.jsdelivr.net/gh/paukuman/fansub-theme@main/sorcery/episode.js';
 
         async function loadPlayer() {
           try {
