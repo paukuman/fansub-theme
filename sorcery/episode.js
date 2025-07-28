@@ -682,60 +682,58 @@ class AnimePlayerApp {
     this.retryDelay = 1000; // 1 second
   }
 
-  async init() {
-    try {
-      if (!this.blogID || !this.postID) {
-        throw new AnimeError('Missing blogID or postID in meta tags');
-      }
-
-      // Check if container exists
-      this.appElement = document.getElementById('episode-container');
-
-      if (!this.appElement) {
-        // If not found, set up a MutationObserver to watch for its appearance
-        this.setupObserver();
-        return;
-      }
-
-      this.showLoading();
-
-      // Fetch all data in parallel
-      const [episodeData, episodesListData] = await Promise.all([
-        this.apiService.getEpisodeData(this.blogID, this.postID),
-        this.apiService.getEpisodesList(this.blogID, this.postID)
-      ]);
-
-      // Process episode data
-      this.currentEpisode = new AnimeEpisode(episodeData.response.entry);
-
-      // Process episodes list
-      this.episodesList = episodesListData.entries.map(entry => new AnimeEpisode(entry));
-
-      // Get MAL ID from current episode
-      const malId = this.currentEpisode.malId;
-      if (!malId) {
-        throw new AnimeError('Missing MAL ID in episode data');
-      }
-
-      // Fetch anime info and Jikan data
-      const [animeInfoData, jikanData] = await Promise.all([
-        this.apiService.getAnimeInfo(this.blogID, malId),
-        this.apiService.getJikanAnimeDetails(malId)
-      ]);
-
-      // Process anime series data
-      this.animeSeries = new AnimeSeries(
-        animeInfoData.response.entries[0],
-        jikanData
-      );
-
-      // Render the app
-      this.render();
-    } catch (error) {
-      console.error('Initialization error:', error);
-      this.showError(error);
+async init() {
+  try {
+    if (!this.blogID || !this.postID) {
+      throw new AnimeError('Missing blogID or postID in meta tags');
     }
+
+    // Check if container exists
+    this.appElement = document.getElementById('episode-container');
+
+    if (!this.appElement) {
+      // If not found, set up a MutationObserver to watch for its appearance
+      this.setupObserver();
+      return;
+    }
+
+    this.showLoading();
+
+    // First fetch the episode data to get the mal_id
+    const episodeData = await this.apiService.getEpisodeData(this.blogID, this.postID);
+    
+    // Process episode data
+    this.currentEpisode = new AnimeEpisode(episodeData.response.entry);
+    
+    // Get MAL ID from current episode
+    const malId = this.currentEpisode.malId;
+    if (!malId) {
+      throw new AnimeError('Missing MAL ID in episode data');
+    }
+
+    // Now fetch the episodes list and other data in parallel using the malId
+    const [episodesListData, animeInfoData, jikanData] = await Promise.all([
+      this.apiService.getEpisodesList(this.blogID, malId),
+      this.apiService.getAnimeInfo(this.blogID, malId),
+      this.apiService.getJikanAnimeDetails(malId)
+    ]);
+
+    // Process episodes list
+    this.episodesList = episodesListData.entries.map(entry => new AnimeEpisode(entry));
+
+    // Process anime series data
+    this.animeSeries = new AnimeSeries(
+      animeInfoData.response.entries[0],
+      jikanData
+    );
+
+    // Render the app
+    this.render();
+  } catch (error) {
+    console.error('Initialization error:', error);
+    this.showError(error);
   }
+}
 
   setupObserver() {
     if (this.retryCount >= this.maxRetries) {
