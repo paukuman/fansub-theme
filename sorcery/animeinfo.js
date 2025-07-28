@@ -217,6 +217,7 @@ class AnimeInfo {
       const pageType = this.animeData.categories?.find(cat => cat.startsWith('page:'))?.split(':')[1];
       if (pageType === 'episode') {
         const epsMain = document.createElement('main');
+        epsMain.innerHTML = `<div id="app" class="space-y-6"></div>`;
         epsMain.classList.add('flex-1', 'space-y-6');
         epsMain.setAttribute('id', 'episode-container');
         this.container.replaceWith(epsMain);
