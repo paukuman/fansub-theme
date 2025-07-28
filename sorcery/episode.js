@@ -757,7 +757,6 @@ class AnimePlayerApp {
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
   const app = new AnimePlayerApp();
   app.init();
 
@@ -779,4 +778,3 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.head.appendChild(plyrJS);
   }
-});
