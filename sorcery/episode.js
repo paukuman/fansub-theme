@@ -81,6 +81,12 @@ class AnimeAPIService {
     const url = `${this.jikanUrl}/${malId}/full`;
     return this.fetchWithCache(url, `jikan-${malId}`);
   }
+
+  // New method to get anime pictures
+  async getAnimePictures(malId) {
+    const url = `${this.jikanUrl}/${malId}/pictures`;
+    return this.fetchWithCache(url, `pictures-${malId}`);
+  }
 }
 
 // Data Models
@@ -161,11 +167,12 @@ class AnimeEpisode {
 }
 
 class AnimeSeries {
-  constructor(data, jikanData) {
+  constructor(data, jikanData, picturesData) {
     this.title = data.title;
     this.malId = this.extractMalId(data.categories);
     this.categories = data.categories;
     this.jikanData = jikanData;
+    this.picturesData = picturesData;
     this.rating = this.extractRating(data.categories);
     this.type = this.extractType(data.categories);
     this.status = this.extractStatus(data.categories);
@@ -214,6 +221,14 @@ class AnimeSeries {
 
   get fullInfo() {
     return this.jikanData?.data || null;
+  }
+
+  get pictures() {
+    if (!this.picturesData?.data) return [];
+    return this.picturesData.data.map(item => {
+      // Prioritize webp, fallback to jpg
+      return item.webp?.image_url || item.jpg.image_url;
+    });
   }
 }
 
@@ -570,22 +585,57 @@ class EpisodeNavigation {
 }
 
 class AnimeInfoSection {
-  constructor(animeSeries) {
+  constructor(animeSeries, animeInfoData) {
     this.animeSeries = animeSeries;
+    this.animeInfoData = animeInfoData;
   }
 
   render() {
     const jikanData = this.animeSeries.fullInfo;
+    const pictures = this.animeSeries.pictures;
+    
+    // Get the path from animeInfoData response
+    const animeInfoPath = this.animeInfoData?.response?.entries[0]?.path;
+    const animeInfoUrl = animeInfoPath ? `${window.location.origin}${animeInfoPath}` : '#';
 
     return `
       <div class="glass rounded-xl p-6 mb-6">
-        <h2 class="text-xl font-bold mb-4">About ${this.animeSeries.title}</h2>
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">About ${this.animeSeries.title}</h2>
+        </div>
+        
+        ${pictures.length > 0 ? `
+          <div class="mb-6">
+            <div class="anime-cover-slider relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 aspect-[3/4] max-w-xs mx-auto">
+              ${pictures.map((img, index) => `
+                <div class="slide ${index === 0 ? 'active' : ''}">
+                  <img src="${img}" alt="${this.animeSeries.title} Cover ${index + 1}" class="w-full h-full object-cover">
+                </div>
+              `).join('')}
+              
+              ${pictures.length > 1 ? `
+                <button class="slider-nav prev absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="slider-nav next absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+                
+                <div class="slider-dots absolute bottom-2 left-0 right-0 flex justify-center space-x-2">
+                  ${pictures.map((_, index) => `
+                    <button class="dot w-2 h-2 rounded-full bg-white bg-opacity-50 ${index === 0 ? 'bg-opacity-100' : ''}" data-index="${index}"></button>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
         
         ${jikanData?.synopsis ? `
           <div class="mb-6">
             <h3 class="font-semibold mb-2">Synopsis</h3>
             <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
-              ${jikanData.synopsis}
+              ${jikanData.synopsis.substring(0, 250)}...
             </p>
           </div>
         ` : ''}
@@ -621,11 +671,16 @@ class AnimeInfoSection {
               <li class="flex">
                 <span class="w-24 text-gray-600 dark:text-gray-400">Genres:</span>
                 <div>
-                  ${this.animeSeries.genres.map(genre => `
+                  ${this.animeSeries.genres.slice(0, 5).map(genre => `
                     <span class="inline-block px-2 py-1 text-xs rounded-full bg-primary-100 dark:bg-primary-800 mr-2 mb-2">
                       ${genre}
                     </span>
                   `).join('')}
+                  ${this.animeSeries.genres.length > 5 ? `
+                    <span class="inline-block px-2 py-1 text-xs rounded-full bg-primary-100 dark:bg-primary-800 mr-2 mb-2">
+                      +${this.animeSeries.genres.length - 5} more
+                    </span>
+                  ` : ''}
                 </div>
               </li>
             </ul>
@@ -661,8 +716,59 @@ class AnimeInfoSection {
             </ul>
           </div>
         </div>
+
+        ${animeInfoPath ? `
+            <a href="${animeInfoUrl}" class="flex items-center glass rounded-lg px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+              <i class="fas fa-external-link-alt mr-2"></i> Lihat Selengkapnya
+            </a>
+          ` : ''}
       </div>
     `;
+  }
+
+  bindEvents() {
+    // Initialize slider if there are multiple images
+    const slider = document.querySelector('.anime-cover-slider');
+    if (slider && slider.querySelectorAll('.slide').length > 1) {
+      const slides = slider.querySelectorAll('.slide');
+      const dots = slider.querySelectorAll('.dot');
+      let currentSlide = 0;
+
+      // Function to show a specific slide
+      const showSlide = (index) => {
+        slides.forEach(slide => slide.classList.remove('active'));
+        dots.forEach(dot => dot.classList.remove('bg-opacity-100'));
+        
+        slides[index].classList.add('active');
+        dots[index].classList.add('bg-opacity-100');
+        currentSlide = index;
+      };
+
+      // Next button
+      slider.querySelector('.next').addEventListener('click', () => {
+        const nextIndex = (currentSlide + 1) % slides.length;
+        showSlide(nextIndex);
+      });
+
+      // Previous button
+      slider.querySelector('.prev').addEventListener('click', () => {
+        const prevIndex = (currentSlide - 1 + slides.length) % slides.length;
+        showSlide(prevIndex);
+      });
+
+      // Dot navigation
+      dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => {
+          showSlide(index);
+        });
+      });
+
+      // Auto slide every 5 seconds
+      setInterval(() => {
+        const nextIndex = (currentSlide + 1) % slides.length;
+        showSlide(nextIndex);
+      }, 5000);
+    }
   }
 }
 
@@ -682,58 +788,63 @@ class AnimePlayerApp {
     this.retryDelay = 1000; // 1 second
   }
 
-async init() {
-  try {
-    if (!this.blogID || !this.postID) {
-      throw new AnimeError('Missing blogID or postID in meta tags');
+  async init() {
+    try {
+      if (!this.blogID || !this.postID) {
+        throw new AnimeError('Missing blogID or postID in meta tags');
+      }
+
+      // Check if container exists
+      this.appElement = document.getElementById('episode-container');
+
+      if (!this.appElement) {
+        // If not found, set up a MutationObserver to watch for its appearance
+        this.setupObserver();
+        return;
+      }
+
+      this.showLoading();
+
+      // First fetch the episode data to get the mal_id
+      const episodeData = await this.apiService.getEpisodeData(this.blogID, this.postID);
+      
+      // Process episode data
+      this.currentEpisode = new AnimeEpisode(episodeData.response.entry);
+      
+      // Get MAL ID from current episode
+      const malId = this.currentEpisode.malId;
+      if (!malId) {
+        throw new AnimeError('Missing MAL ID in episode data');
+      }
+
+      // Now fetch the episodes list and other data in parallel using the malId
+      const [episodesListData, animeInfoData, jikanData, picturesData] = await Promise.all([
+        this.apiService.getEpisodesList(this.blogID, malId),
+        this.apiService.getAnimeInfo(this.blogID, malId),
+        this.apiService.getJikanAnimeDetails(malId),
+        this.apiService.getAnimePictures(malId)
+      ]);
+
+      // Process episodes list
+      this.episodesList = episodesListData.entries.map(entry => new AnimeEpisode(entry));
+
+      // Process anime series data
+      this.animeSeries = new AnimeSeries(
+        animeInfoData.response.entries[0],
+        jikanData,
+        picturesData
+      );
+
+      
+    this.animeInfoData = animeInfoData;
+
+      // Render the app
+      this.render();
+    } catch (error) {
+      console.error('Initialization error:', error);
+      this.showError(error);
     }
-
-    // Check if container exists
-    this.appElement = document.getElementById('episode-container');
-
-    if (!this.appElement) {
-      // If not found, set up a MutationObserver to watch for its appearance
-      this.setupObserver();
-      return;
-    }
-
-    this.showLoading();
-
-    // First fetch the episode data to get the mal_id
-    const episodeData = await this.apiService.getEpisodeData(this.blogID, this.postID);
-    
-    // Process episode data
-    this.currentEpisode = new AnimeEpisode(episodeData.response.entry);
-    
-    // Get MAL ID from current episode
-    const malId = this.currentEpisode.malId;
-    if (!malId) {
-      throw new AnimeError('Missing MAL ID in episode data');
-    }
-
-    // Now fetch the episodes list and other data in parallel using the malId
-    const [episodesListData, animeInfoData, jikanData] = await Promise.all([
-      this.apiService.getEpisodesList(this.blogID, malId),
-      this.apiService.getAnimeInfo(this.blogID, malId),
-      this.apiService.getJikanAnimeDetails(malId)
-    ]);
-
-    // Process episodes list
-    this.episodesList = episodesListData.entries.map(entry => new AnimeEpisode(entry));
-
-    // Process anime series data
-    this.animeSeries = new AnimeSeries(
-      animeInfoData.response.entries[0],
-      jikanData
-    );
-
-    // Render the app
-    this.render();
-  } catch (error) {
-    console.error('Initialization error:', error);
-    this.showError(error);
   }
-}
 
   setupObserver() {
     if (this.retryCount >= this.maxRetries) {
@@ -803,7 +914,7 @@ async init() {
       </div>
       ${new DownloadSection(this.currentEpisode.downloadList).render()}
       ${new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).render()}
-      ${new AnimeInfoSection(this.animeSeries).render()}
+      ${new AnimeInfoSection(this.animeSeries, this.animeInfoData).render()}
     `;
 
     // Initialize video player
@@ -814,9 +925,9 @@ async init() {
     // Bind other events
     new DownloadSection(this.currentEpisode.downloadList).bindEvents();
     new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).bindEvents();
+    new AnimeInfoSection(this.animeSeries).bindEvents();
   }
 }
-
 
 // Check if the container exists immediately
 const container = document.getElementById('episode-container');
@@ -848,3 +959,37 @@ if (!window.Plyr) {
   };
   document.head.appendChild(plyrJS);
 }
+
+// Add CSS for the slider
+const sliderCSS = `
+  .anime-cover-slider {
+    position: relative;
+  }
+  
+  .anime-cover-slider .slide {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  
+  .anime-cover-slider .slide.active {
+    display: block;
+    opacity: 1;
+  }
+  
+  .slider-nav {
+    display: none;
+  }
+  
+  .anime-cover-slider:hover .slider-nav {
+    display: block;
+  }
+  
+  .slider-dots {
+    display: flex;
+  }
+`;
+
+const styleElement = document.createElement('style');
+styleElement.textContent = sliderCSS;
+document.head.appendChild(styleElement);

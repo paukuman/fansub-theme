@@ -34,6 +34,11 @@ class AnimeInfo {
     this.episodeData = null;
     this.picturesData = null;
     this.container = document.getElementById('animeinfo-container');
+    this.shareData = {
+      title: '',
+      text: '',
+      url: window.location.href
+    };
     this.init();
   }
   /**
@@ -215,7 +220,7 @@ class AnimeInfo {
 
       // Second protection: Check if this is an animeinfo page
       const pageType = this.animeData.categories?.find(cat => cat.startsWith('page:'))?.split(':')[1];
-      if (pageType === 'episode') {
+      if (pageType == 'episode') {
         const epsMain = document.createElement('main');
         epsMain.innerHTML = `<div id="app" class="space-y-6"></div>`;
         epsMain.classList.add('flex-1', 'space-y-6');
@@ -223,7 +228,7 @@ class AnimeInfo {
         this.container.replaceWith(epsMain);
 
         return;
-      } else if (!pageType || pageType !== 'episode' || pageType !== 'animeinfo') {
+      } else if (!pageType || pageType !== 'animeinfo') {
         this.container.innerHTML = '';
         return;
       }
@@ -404,12 +409,187 @@ class AnimeInfo {
       ${this.renderEpisodes()}
       ${this.renderCharacters()}
     `;
+
+    // Setup event listeners setelah render
+    this.setupEventListeners();
   }
 
   /**
-   * Renders the anime header section with poster and basic info
-   * @returns {string} HTML string for the header section
+   * Setup event listeners untuk tombol share
    */
+  setupEventListeners() {
+    // Setup untuk tombol share
+    const shareButtons = this.container.querySelectorAll('.share-button');
+    shareButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        this.handleShare();
+      });
+    });
+  }
+
+
+  /**
+   * Menangani fungsi berbagi
+   */
+  handleShare() {
+    if (navigator.share) {
+      // Web Share API tersedia (biasanya di mobile)
+      navigator.share(this.shareData)
+        .then(() => console.log('Berhasil berbagi'))
+        .catch((error) => {
+          console.log('Error berbagi:', error);
+          this.showCustomShareDialog();
+        });
+    } else {
+      // Web Share API tidak tersedia, tampilkan dialog custom
+      this.showCustomShareDialog();
+    }
+  }
+
+  /**
+   * Menampilkan dialog berbagi custom
+   */
+  showCustomShareDialog() {
+    // Hapus dialog share yang sudah ada jika ada
+    const existingDialog = document.getElementById('custom-share-dialog');
+    if (existingDialog) {
+      existingDialog.remove();
+    }
+
+    // Buat dialog share
+    const shareDialog = document.createElement('div');
+    shareDialog.id = 'custom-share-dialog';
+    shareDialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    shareDialog.innerHTML = `
+      <div class="glass rounded-xl p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold">Bagikan ${this.shareData.title}</h3>
+          <button class="close-share-dialog p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="grid grid-cols-4 gap-4 mb-4">
+          <button class="share-option flex flex-col items-center p-3 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-800" data-platform="facebook">
+            <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center mb-2">
+              <i class="fab fa-facebook-f text-white text-xl"></i>
+            </div>
+            <span class="text-sm">Facebook</span>
+          </button>
+          <button class="share-option flex flex-col items-center p-3 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-800" data-platform="twitter">
+            <div class="w-12 h-12 rounded-full bg-blue-400 flex items-center justify-center mb-2">
+              <i class="fab fa-twitter text-white text-xl"></i>
+            </div>
+            <span class="text-sm">Twitter</span>
+          </button>
+          <button class="share-option flex flex-col items-center p-3 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-800" data-platform="whatsapp">
+            <div class="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center mb-2">
+              <i class="fab fa-whatsapp text-white text-xl"></i>
+            </div>
+            <span class="text-sm">WhatsApp</span>
+          </button>
+          <button class="share-option flex flex-col items-center p-3 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-800" data-platform="telegram">
+            <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center mb-2">
+              <i class="fab fa-telegram-plane text-white text-xl"></i>
+            </div>
+            <span class="text-sm">Telegram</span>
+          </button>
+        </div>
+        <div class="flex items-center">
+          <input type="text" readonly value="${this.shareData.url}" class="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-l-lg bg-gray-100 dark:bg-gray-800 text-sm">
+          <button class="copy-url p-3 bg-primary-500 text-white rounded-r-lg hover:bg-primary-600">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Tambahkan dialog ke body
+    document.body.appendChild(shareDialog);
+
+    // Setup event listeners untuk dialog
+    shareDialog.querySelector('.close-share-dialog').addEventListener('click', () => {
+      shareDialog.remove();
+    });
+
+    shareDialog.querySelector('.copy-url').addEventListener('click', () => {
+      this.copyUrlToClipboard();
+      // Ubah icon sementara untuk memberi feedback
+      const copyButton = shareDialog.querySelector('.copy-url');
+      const originalHtml = copyButton.innerHTML;
+      copyButton.innerHTML = '<i class="fas fa-check"></i>';
+      setTimeout(() => {
+        copyButton.innerHTML = originalHtml;
+      }, 2000);
+    });
+
+    // Setup untuk platform berbagi
+    const shareOptions = shareDialog.querySelectorAll('.share-option');
+    shareOptions.forEach(option => {
+      option.addEventListener('click', (e) => {
+        const platform = e.currentTarget.getAttribute('data-platform');
+        this.shareToPlatform(platform);
+      });
+    });
+
+    // Tutup dialog ketika klik di luar
+    shareDialog.addEventListener('click', (e) => {
+      if (e.target === shareDialog) {
+        shareDialog.remove();
+      }
+    });
+  }
+
+  /**
+   * Berbagi ke platform tertentu
+   * @param {string} platform - Nama platform
+   */
+  shareToPlatform(platform) {
+    const encodedUrl = encodeURIComponent(this.shareData.url);
+    const encodedText = encodeURIComponent(this.shareData.text);
+
+    let shareUrl = '';
+
+    switch (platform) {
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
+        break;
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${encodedText} ${encodedUrl}`;
+        break;
+      case 'telegram':
+        shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`;
+        break;
+      default:
+        console.error('Platform tidak dikenali:', platform);
+        return;
+    }
+
+    window.open(shareUrl, '_blank', 'width=600,height=400');
+  }
+
+  /**
+   * Menyalin URL ke clipboard
+   */
+  copyUrlToClipboard() {
+    navigator.clipboard.writeText(this.shareData.url)
+      .then(() => {
+        console.log('URL disalin ke clipboard');
+      })
+      .catch(err => {
+        console.error('Gagal menyalin URL: ', err);
+        // Fallback untuk browser yang tidak mendukung clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = this.shareData.url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      });
+  }
+
   renderHeader() {
     const englishTitle = this.animeData.title_english || this.animeData.title;
     const japaneseTitle = this.animeData.title_japanese || '';
@@ -422,6 +602,10 @@ class AnimeInfo {
     const airedDate = this.animeData.aired?.string || '';
     const duration = this.animeData.duration || '';
     const genres = this.animeData.genres?.map(genre => genre.name) || [];
+
+    // Simpan data untuk share
+    this.shareData.title = englishTitle;
+    this.shareData.text = `${englishTitle} - ${this.animeData.synopsis ? this.truncateSynopsis(this.animeData.synopsis, 100) : 'Anime series'}`;
 
     return `
       <div class="glass rounded-xl p-6">
@@ -515,7 +699,7 @@ class AnimeInfo {
               <button class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
                 <i class="fas fa-play mr-2"></i>Watch Now
               </button>
-              <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+              <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors share-button" data-title="${englishTitle}">
                 <i class="fas fa-share-alt"></i>
               </button>
               <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
@@ -546,8 +730,8 @@ class AnimeInfo {
             <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
               <i class="fas fa-plus"></i>
             </button>
-            <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-              <i class="fas fa-bookmark"></i>
+            <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors share-button" data-title="${englishTitle}">
+              <i class="fas fa-share-alt"></i>
             </button>
           </div>
         </div>
@@ -563,7 +747,7 @@ class AnimeInfo {
     if (!this.animeData.synopsis) return '';
 
     return `
-      <div class="glass rounded-xl p-6">
+      <div class="glass rounded-xl p-6 hidden md:block">
         <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Synopsis</h2>
         <p class="text-gray-700 dark:text-gray-300">
           ${this.animeData.synopsis}
@@ -627,13 +811,17 @@ class AnimeInfo {
       <div class="flex flex-col md:flex-row gap-4 p-4 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
         <div class="w-full md:w-48 flex-shrink-0">
           <div class="episode-thumbnail w-full h-full overflow-hidden rounded-lg">
-            <img src="${imageUrl}" alt="${episode.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200'">
-          </div>
+            <a href="${episode.path}">
+              <img src="${imageUrl}" alt="${episode.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200'">
+            </a>
+            </div>
         </div>
         <div class="flex-1">
           <div class="flex justify-between items-start">
             <div>
-              <h3 class="font-medium">${episode.title}</h3>
+              <h3 class="font-medium">
+                <a href="${episode.path}">${episode.title}</a>
+              </h3>
               <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mt-1">
                 ${episodeNumber ? `<span class="mr-3">Ep ${episodeNumber}</span>` : ''}
                 <span class="mr-3"><i class="fas fa-clock mr-1"></i>24m</span>
@@ -641,15 +829,15 @@ class AnimeInfo {
               </div>
             </div>
             <div class="flex items-center">
-              ${quality ? `<span class="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded mr-2">${quality}</span>` : ''}
-              ${resolution ? `<span class="text-sm bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">${resolution}</span>` : ''}
+              ${quality ? `<span class="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded mr-2 hidden sm:block">${quality}</span>` : ''}
+              ${resolution ? `<span class="text-sm bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded hidden sm:block">${resolution}</span>` : ''}
             </div>
           </div>
-          ${episode.content ? `
+          ${episode.content ? /*`
           <p class="text-gray-600 dark:text-gray-400 mt-2">
             ${this.extractTextFromContent(episode.content)}
           </p>
-          ` : ''}
+          `*/ '' : ''}
         </div>
       </div>
     `;
@@ -663,7 +851,6 @@ class AnimeInfo {
     if (!this.characterData || this.characterData.length === 0) return '';
 
     const mainCharacters = this.characterData
-      .filter(char => char.role === 'Main')
       .slice(0, 6);
 
     if (mainCharacters.length === 0) return '';
