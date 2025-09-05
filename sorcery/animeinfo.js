@@ -25,22 +25,27 @@ class AnimeInfo {
    * Constructor - Initializes the AnimeInfo instance
    * @constructor
    */
-  constructor() {
-    this.blogID = document.querySelector('meta[name="blogID"]').content;
-    this.postID = document.querySelector('meta[name="postID"]').content;
-    this.malID = null;
-    this.animeData = null;
-    this.characterData = null;
-    this.episodeData = null;
-    this.picturesData = null;
-    this.container = document.getElementById('animeinfo-container');
-    this.shareData = {
-      title: '',
-      text: '',
-      url: window.location.href
-    };
-    this.init();
-  }
+    constructor() {
+  this.blogID = document.querySelector('meta[name="blogID"]').content;
+  this.postID = document.querySelector('meta[name="postID"]').content;
+  this.malID = null;
+  this.animeData = null;
+  this.characterData = null;
+  this.episodeData = []; // Inisialisasi sebagai array kosong, bukan null
+  this.picturesData = null;
+  this.container = document.getElementById('animeinfo-container');
+  this.shareData = {
+    title: '',
+    text: '',
+    url: window.location.href
+  };
+  this.episodeOffset = 1;
+  this.episodeLimit = 4;
+  this.isLoadingEpisodes = false;
+  this.hasMoreEpisodes = true;
+  
+  this.init();
+}
   /**
        * Renders skeleton loading state
        * @returns {string} HTML string for skeleton loading
@@ -369,23 +374,143 @@ class AnimeInfo {
     }
   }
 
-  /**
-   * Fetches episode data from custom API
-   * @async
-   */
-  async fetchEpisodeData() {
-    try {
-      const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode`);
-      if (!response.ok) throw new Error('Episode API response was not ok');
-
-      const data = await response.json();
-      this.episodeData = data.entries || [];
-    } catch (error) {
-      console.error('Error fetching episode data:', error);
-      this.episodeData = [];
+async fetchEpisodeData(loadMore = false) {
+  if (this.isLoadingEpisodes) return;
+  
+  try {
+    this.isLoadingEpisodes = true;
+    
+    // Update UI untuk menunjukkan loading state
+    this.updateEpisodeLoadingState(true);
+    
+    // Jika bukan load more, reset offset
+    if (!loadMore) {
+      this.episodeOffset = 0;
+      this.hasMoreEpisodes = true;
+      this.episodeData = []; // Pastikan episodeData adalah array kosong
     }
+    
+    const response = await fetch(
+      `https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode&limit=${this.episodeLimit}&offset=${this.episodeOffset}`
+    );
+    
+    if (!response.ok) throw new Error('Episode API response was not ok');
+    
+    const data = await response.json();
+    
+    // Periksa jika response adalah 404 (tidak ada konten lagi)
+    if (data.status === 404) {
+      this.hasMoreEpisodes = false;
+      return;
+    }
+    
+    const newEpisodes = data.entries || [];
+    
+    // Jika load more, tambahkan ke existing data
+    if (loadMore) {
+      this.episodeData = [...this.episodeData, ...newEpisodes];
+    } else {
+      this.episodeData = newEpisodes;
+    }
+    
+    // Periksa apakah masih ada episode lagi
+    this.hasMoreEpisodes = newEpisodes.length === this.episodeLimit;
+    this.episodeOffset += parseInt(newEpisodes.length) + 1;
+    
+  } catch (error) {
+    console.error('Error fetching episode data:', error);
+    // Pastikan episodeData tetap array kosong jika error
+    if (!loadMore) this.episodeData = [];
+  } finally {
+    this.isLoadingEpisodes = false;
+    // Update UI untuk menyembunyikan loading state
+    this.updateEpisodeLoadingState(false);
   }
+}
 
+/**
+ * Memperbarui UI untuk menunjukkan/menyembunyikan loading state
+ * @param {boolean} isLoading - Apakah sedang dalam state loading
+ */
+updateEpisodeLoadingState(isLoading) {
+  const loadMoreBtn = this.container.querySelector('.load-more-episodes');
+  const episodesContainer = this.container.querySelector('.episodes-list');
+  
+  if (isLoading) {
+    // Tampilkan loading indicator di tombol
+    if (loadMoreBtn) {
+      loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Loading...';
+      loadMoreBtn.disabled = true;
+    }
+    
+    // Tambahkan skeleton loading untuk episode baru (jika load more)
+    if (this.episodeData && this.episodeData.length > 0 && loadMoreBtn) {
+      this.addEpisodeSkeletons();
+    }
+  } else {
+    // Sembunyikan loading indicator
+    if (loadMoreBtn) {
+      loadMoreBtn.innerHTML = 'Load More Episodes';
+      loadMoreBtn.disabled = false;
+      
+      // Sembunyikan tombol jika tidak ada episode lagi
+      if (!this.hasMoreEpisodes) {
+        loadMoreBtn.style.display = 'none';
+        
+        // Tambahkan pesan bahwa semua episode telah dimuat
+        const loadedAllMessage = document.createElement('div');
+        loadedAllMessage.className = 'notif-lasteps text-center text-sm text-gray-500 dark:text-gray-400 mt-4';
+        loadedAllMessage.textContent = 'All episodes loaded';
+        document.querySelector('.notif-lasteps') ? null : loadMoreBtn.parentNode.appendChild(loadedAllMessage);
+      }
+    }
+    
+    // Hapus skeleton loading
+    this.removeEpisodeSkeletons();
+  }
+}
+
+/**
+ * Menambahkan skeleton loading untuk episode
+ */
+
+addEpisodeSkeletons() {
+  const episodesContainer = this.container.querySelector('.episodes-list');
+  if (!episodesContainer) return;
+  
+  // Pastikan episodeData ada sebelum melanjutkan
+  if (!this.episodeData) return;
+  
+  // Tambahkan 3 skeleton loading
+  for (let i = 0; i < 3; i++) {
+    const skeleton = document.createElement('div');
+    skeleton.className = 'episode-item flex items-center p-3';
+    skeleton.innerHTML = `
+      <div class="w-16 h-9 flex-shrink-0 mr-3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+      <div class="flex-1">
+        <div class="h-4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-2 w-3/4"></div>
+        <div class="h-3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse w-1/2"></div>
+      </div>
+    `;
+    episodesContainer.appendChild(skeleton);
+  }
+}
+
+/**
+ * Menghapus skeleton loading untuk episode
+ */
+removeEpisodeSkeletons() {
+  const episodesContainer = this.container.querySelector('.episodes-list');
+  if (!episodesContainer) return;
+  
+  // Hapus semua elemen dengan class skeleton (jika ada)
+  const skeletons = episodesContainer.querySelectorAll('.bg-gray-300, .bg-gray-700');
+  skeletons.forEach(skeleton => {
+    if (skeleton.closest('.episode-item')) {
+      skeleton.closest('.episode-item').remove();
+    }
+  });
+}
   /**
    * Displays error message in the container
    * @param {string} message - Error message to display
@@ -425,8 +550,96 @@ class AnimeInfo {
         this.handleShare();
       });
     });
+
+    // Setup untuk tombol view all characters
+    const viewAllCharsBtn = this.container.querySelector('.view-all-characters-btn');
+    if (viewAllCharsBtn) {
+      viewAllCharsBtn.addEventListener('click', () => {
+        this.showAllCharacters();
+      });
+    }
+
+    // Setup untuk tombol load more episodes
+  const loadMoreBtn = this.container.querySelector('.load-more-episodes');
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', () => {
+      this.loadMoreEpisodes();
+    });
   }
 
+  // this.setupInfiniteScroll();
+  }
+
+   /**
+   * Menampilkan modal dengan semua karakter
+   */
+  showAllCharacters() {
+    // Hapus modal karakter yang sudah ada jika ada
+    const existingModal = document.getElementById('characters-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Buat modal untuk menampilkan semua karakter
+    const charactersModal = document.createElement('div');
+    charactersModal.id = 'characters-modal';
+    charactersModal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-auto';
+    charactersModal.innerHTML = `
+      <div class="glass rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6 glass rounded-xl sticky top-0 p-2">
+          <h2 class="text-2xl font-bold text-primary-700 dark:text-primary-400">All Characters & Cast</h2>
+          <button class="close-characters-modal p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-xl">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          ${this.characterData.map(character => this.renderCharacterModalItem(character)).join('')}
+        </div>
+      </div>
+    `;
+
+    // Tambahkan modal ke body
+    document.body.appendChild(charactersModal);
+
+    // Setup event listener untuk tombol close
+    charactersModal.querySelector('.close-characters-modal').addEventListener('click', () => {
+      charactersModal.remove();
+    });
+
+    // Tutup modal ketika klik di luar
+    charactersModal.addEventListener('click', (e) => {
+      if (e.target === charactersModal) {
+        charactersModal.remove();
+      }
+    });
+  }
+
+  /**
+   * Renders a character item for the modal
+   * @param {Object} character - Character data object
+   * @returns {string} HTML string for a character modal item
+   */
+  renderCharacterModalItem(character) {
+    const imageUrl = character.character.images?.jpg?.image_url;
+    const isQuestionmarkGif = imageUrl && /questionmark_\d+\.gif/.test(imageUrl);
+    const charImage = isQuestionmarkGif ? 'https://placehold.co/225x350' : imageUrl || 'https://placehold.co/225x350';
+    const seiyuu = character.voice_actors?.find(va => va.language === 'Japanese');
+    const role = character.role || 'Supporting';
+
+    return `
+      <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md hover:shadow-lg transition-shadow">
+        <div class="cast-card w-full h-40 bg-gradient-to-br from-gray-400 to-gray-600 mb-2 overflow-hidden rounded-lg">
+          <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/225x350'">
+        </div>
+        <div class="mb-1">
+          <span class="text-xs px-2 py-1 rounded-full ${role === 'Main' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">${role}</span>
+        </div>
+        <h3 class="font-medium text-sm mb-1">${character.character.name}</h3>
+        ${seiyuu ? `<p class="text-xs text-gray-600 dark:text-gray-400">${seiyuu.person.name}</p>` : ''}
+      </div>
+    `;
+  }
 
   /**
    * Menangani fungsi berbagi
@@ -760,98 +973,106 @@ class AnimeInfo {
    * Renders the episodes section
    * @returns {string} HTML string for the episodes section
    */
-  renderEpisodes() {
-    if (!this.episodeData || this.episodeData.length === 0) return '';
-
+renderEpisodes() {
+  // Pastikan episodeData adalah array sebelum memeriksa length
+  if (!this.episodeData || this.episodeData.length === 0) {
     return `
       <div class="glass rounded-xl p-6">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-bold text-primary-700 dark:text-primary-400">Episodes</h2>
-          <div class="flex items-center space-x-2">
-            <span class="text-sm">Season ${this.extractSeasonFromCategories() || '1'}</span>
-            <button class="p-2 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
-              <i class="fas fa-chevron-down"></i>
-            </button>
-          </div>
         </div>
-
-        <div class="space-y-4">
-          ${this.episodeData.map(episode => this.renderEpisodeItem(episode)).join('')}
+        <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+          <i class="fas fa-film text-4xl mb-3"></i>
+          <p>No episodes available yet</p>
         </div>
-
-        ${this.episodeData.length > 2 ? `
-        <div class="mt-4 text-center">
-          <button class="px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-            Load More Episodes
-          </button>
-        </div>
-        ` : ''}
       </div>
     `;
   }
+
+  return `
+    <div class="glass rounded-xl p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-primary-700 dark:text-primary-400">Episodes</h2>
+        <div class="flex items-center space-x-2">
+          <span class="text-sm">Season ${this.extractSeasonFromCategories() || '1'}</span>
+          <button class="p-2 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="episodes-list space-y-2">
+        ${this.episodeData.map(episode => this.renderEpisodeItem(episode)).join('')}
+      </div>
+
+      ${this.hasMoreEpisodes ? `
+      <div class="load-more-container mt-4 text-center">
+        <button class="load-more-episodes px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+          Load More Episodes
+        </button>
+      </div>
+      ` : this.episodeData.length > 10 ? `
+      <div class="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        All ${this.episodeData.length} episodes loaded
+      </div>
+      ` : ''}
+    </div>
+  `;
+}
 
   /**
    * Renders a single episode item
    * @param {Object} episode - Episode data object
    * @returns {string} HTML string for an episode item
    */
-  renderEpisodeItem(episode) {
-    const episodeNumber = this.extractEpisodeNumber(episode.categories);
-    const quality = this.extractQuality(episode.categories);
-    const resolution = this.extractResolution(episode.categories);
-    const date = episode.published?.relative || episode.published?.default || '';
+renderEpisodeItem(episode) {
+  const episodeNumber = this.extractEpisodeNumber(episode.categories);
+  const quality = this.extractQuality(episode.categories);
+  const resolution = this.extractResolution(episode.categories);
+  const date = episode.published?.relative || episode.published?.default || '';
 
-    let imageUrl = 'https://via.placeholder.com/300x200';
-    const imgMatch = episode.content.match(/src="([^"]+)"/);
-    if (imgMatch && imgMatch[1]) {
-      imageUrl = imgMatch[1];
-    }
-
-    return `
-      <div class="flex flex-col md:flex-row gap-4 p-4 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
-        <div class="w-full md:w-48 flex-shrink-0">
-          <div class="episode-thumbnail w-full h-full overflow-hidden rounded-lg">
-            <a href="${episode.path}">
-              <img src="${imageUrl}" alt="${episode.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200'">
-            </a>
-            </div>
-        </div>
-        <div class="flex-1">
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-medium">
-                <a href="${episode.path}">${episode.title}</a>
-              </h3>
-              <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mt-1">
-                ${episodeNumber ? `<span class="mr-3">Ep ${episodeNumber}</span>` : ''}
-                <span class="mr-3"><i class="fas fa-clock mr-1"></i>24m</span>
-                ${date ? `<span>${date}</span>` : ''}
-              </div>
-            </div>
-            <div class="flex items-center">
-              ${quality ? `<span class="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded mr-2 hidden sm:block">${quality}</span>` : ''}
-              ${resolution ? `<span class="text-sm bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded hidden sm:block">${resolution}</span>` : ''}
-            </div>
-          </div>
-          ${episode.content ? /*`
-          <p class="text-gray-600 dark:text-gray-400 mt-2">
-            ${this.extractTextFromContent(episode.content)}
-          </p>
-          `*/ '' : ''}
-        </div>
-      </div>
-    `;
+  // Extract thumbnail image
+  let imageUrl = 'https://via.placeholder.com/80x45';
+  const imgMatch = episode.content.match(/src="([^"]+)"/);
+  if (imgMatch && imgMatch[1]) {
+    imageUrl = imgMatch[1];
   }
 
-  /**
+  return `
+    <div class="episode-item flex items-center p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
+      <div class="w-16 h-16 flex-shrink-0 mr-3 hidden sm:block">
+        <img src="${imageUrl}" alt="${episode.title}" class="w-full h-full object-cover rounded" onerror="this.src='https://via.placeholder.com/80x45'">
+      </div>
+      
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-center">
+          <h3 class="font-medium truncate">
+            <a href="${episode.path}" class="hover:text-primary-600 dark:hover:text-primary-400">${episode.title}</a>
+          </h3>
+          <div class="flex items-center ml-2 flex-shrink-0">
+            ${quality ? `<span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded mr-1">${quality}</span>` : ''}
+            ${resolution ? `<span class="hidden md:block text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-1.5 py-0.5 rounded">${resolution}</span>` : ''}
+          </div>
+        </div>
+        
+        <div class="flex items-center text-xs text-gray-600 dark:text-gray-400 mt-1">
+          ${episodeNumber ? `<span class="mr-3">Ep ${episodeNumber}</span>` : ''}
+          <span class="mr-3"><i class="fas fa-clock mr-1"></i>24m</span>
+          ${date ? `<span>${date}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
    * Renders the characters section
    * @returns {string} HTML string for the characters section
    */
   renderCharacters() {
     if (!this.characterData || this.characterData.length === 0) return '';
 
-    const mainCharacters = this.characterData
-      .slice(0, 6);
+    const mainCharacters = this.characterData.slice(0, 6);
 
     if (mainCharacters.length === 0) return '';
 
@@ -865,7 +1086,7 @@ class AnimeInfo {
 
         ${this.characterData.length > 6 ? `
         <div class="mt-4 text-center">
-          <button class="px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+          <button class="view-all-characters-btn px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
             View All Characters
           </button>
         </div>
@@ -880,13 +1101,15 @@ class AnimeInfo {
    * @returns {string} HTML string for a character item
    */
   renderCharacterItem(character) {
-    const charImage = character.character.images?.jpg?.image_url || 'https://via.placeholder.com/150';
+    const imageUrl = character.character.images?.jpg?.image_url;
+    const isQuestionmarkGif = imageUrl && /questionmark_\d+\.gif/.test(imageUrl);
+    const charImage = isQuestionmarkGif ? 'https://placehold.co/225x350' : imageUrl || 'https://placehold.co/225x350';
     const seiyuu = character.voice_actors?.find(va => va.language === 'Japanese');
 
     return `
       <div class="text-center">
         <div class="cast-card w-full h-48 bg-gradient-to-br from-gray-400 to-gray-600 mb-2 overflow-hidden rounded-lg">
-          <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
+          <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/225x350'">
         </div>
         <h3 class="font-medium">${character.character.name}</h3>
         ${seiyuu ? `<p class="text-sm text-gray-600 dark:text-gray-400">${seiyuu.person.name}</p>` : ''}
@@ -974,6 +1197,61 @@ class AnimeInfo {
   formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
+  
+
+  /**
+ * Memuat lebih banyak episode
+ */
+
+async loadMoreEpisodes() {
+  if (this.isLoadingEpisodes || !this.hasMoreEpisodes) return;
+  
+  await this.fetchEpisodeData(true);
+  
+  // Perbarui UI setelah load more
+  this.updateEpisodesUI();
+}
+
+/**
+ * Memperbarui UI daftar episode setelah load more
+ */
+updateEpisodesUI() {
+  const episodesContainer = this.container.querySelector('.episodes-list');
+  const loadMoreContainer = this.container.querySelector('.load-more-container');
+  
+  if (episodesContainer && this.episodeData) {
+    // Render ulang semua episode
+    episodesContainer.innerHTML = this.episodeData.map(episode => this.renderEpisodeItem(episode)).join('');
+  }
+  
+  // Perbarui state tombol load more
+  this.updateEpisodeLoadingState(false);
+}
+
+
+  setupInfiniteScroll() {
+  // Anda bisa menambahkan infinite scroll jika diinginkan
+  const options = {
+    root: null,
+    rootMargin: '0px',
+    threshold: 0.1
+  };
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && this.hasMoreEpisodes && !this.isLoadingEpisodes) {
+        this.loadMoreEpisodes();
+      }
+    });
+  }, options);
+  
+  // Amati elemen sentinel (tambahkan di akhir daftar episode)
+  const sentinel = document.createElement('div');
+  sentinel.className = 'sentinel';
+  this.container.appendChild(sentinel);
+  observer.observe(sentinel);
+}
+
 }
 
 if (document.getElementById('animeinfo-container')) {

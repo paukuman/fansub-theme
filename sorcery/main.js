@@ -3,35 +3,43 @@
  * 
  * @copyright 2023 Paukuman
  * @author Paukuman
- * @version 1.2.0
+ * @version 1.3.0
  * 
  * @class
  * @classdesc This class manages progressive data fetching with visual progress indication,
- * error handling, and content rendering.
+ * error handling, content rendering, and load more functionality.
  */
 class FetchProgress {
-  // DOM Selectors
+  // DOM Selectors (patched to existing HTML structure)
   static SELECTORS = {
     BLOG_ID: 'meta[name="blogID"]',
     CONTENT_CONTAINER: '#content-container',
     PROGRESS_CONTAINER: '#progress-container',
     SKELETON_CONTAINER: '#skeleton-container',
     PROGRESS_BAR: '#progress-bar',
-    PROGRESS_PERCENT: '#progress-percent'
+    PROGRESS_PERCENT: '#progress-percent',
+    LOAD_MORE_BUTTON: '#load-more-button',
+    LOAD_MORE_CONTAINER: '#load-more-container'
   };
 
   // Error Messages
   static ERROR_MESSAGES = {
     NO_CONTENT_CONTAINER: 'Content container not found',
     FETCH_ERROR: 'Failed to fetch data',
-    RENDER_ERROR: 'Error rendering content'
+    RENDER_ERROR: 'Error rendering content',
+    NETWORK_ERROR: 'Network connection failed',
+    ABORT_ERROR: 'Request was aborted',
+    INVALID_RESPONSE: 'Invalid response format'
   };
 
   // Configuration
   static CONFIG = {
     BASE_API_URL: 'https://mangadb.paukuman.workers.dev',
-    MIN_PROGRESS_UPDATE: 1, // Only update progress if changed by at least 1%
-    HIDE_DELAY: 300 // Delay before hiding progress indicators (ms)
+    MIN_PROGRESS_UPDATE: 1,
+    HIDE_DELAY: 300,
+    MAX_RETRIES: 2,
+    RETRY_DELAY: 1000,
+    ITEMS_PER_PAGE: 2
   };
 
   /**
@@ -39,13 +47,53 @@ class FetchProgress {
    * @constructor
    * @param {string} endpoint - API endpoint path (without base URL)
    * @param {Object} [params={}] - Additional query parameters
+   * @throws {Error} If essential elements are missing from DOM
    */
   constructor(endpoint, params = {}) {
     this.blogID = this.getBlogID();
-    this.apiUrl = this.buildApiUrl(endpoint, params);
-    this.controller = new AbortController();
-    this.signal = this.controller.signal;
+    this.endpoint = endpoint;
+    this.baseParams = params;
+    this.currentOffset = 1;
+    this.hasMore = true;
+    this.isLoading = false;
+    this.controller = null;
+    this.signal = null;
     this.lastProgress = 0;
+    this.retryCount = 0;
+    
+    // Validate essential DOM elements exist
+    this.validateDOM();
+    
+    // Initialize load more button
+    this.initLoadMoreButton();
+  }
+
+  /**
+   * Validates that required DOM elements exist
+   * @private
+   * @throws {Error} If content container is missing
+   */
+  validateDOM() {
+    const contentContainer = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
+    if (!contentContainer) {
+      throw new Error(FetchProgress.ERROR_MESSAGES.NO_CONTENT_CONTAINER);
+    }
+  }
+
+  /**
+   * Initializes the load more button event listener
+   * @private
+   */
+  initLoadMoreButton() {
+    const loadMoreButton = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_BUTTON);
+    if (loadMoreButton) {
+      loadMoreButton.addEventListener('click', () => {
+        if (!this.isLoading && this.hasMore) {
+          this.currentOffset += FetchProgress.CONFIG.ITEMS_PER_PAGE;
+          this.execute(true); // true indicates it's a "load more" request
+        }
+      });
+    }
   }
 
   /**
@@ -53,8 +101,13 @@ class FetchProgress {
    * @returns {string} Blog ID or empty string if not found
    */
   getBlogID() {
-    const blogIDMeta = document.querySelector(FetchProgress.SELECTORS.BLOG_ID);
-    return blogIDMeta?.content || '';
+    try {
+      const blogIDMeta = document.querySelector(FetchProgress.SELECTORS.BLOG_ID);
+      return blogIDMeta?.content || '';
+    } catch (error) {
+      console.warn('Could not retrieve blog ID:', error);
+      return '';
+    }
   }
 
   /**
@@ -64,45 +117,129 @@ class FetchProgress {
    * @returns {string} Complete API URL
    */
   buildApiUrl(endpoint, params) {
-    const url = new URL(endpoint, FetchProgress.CONFIG.BASE_API_URL);
-    
-    // Add blogID if available
-    if (this.blogID) {
-      url.searchParams.set('blogID', this.blogID);
+    try {
+      const url = new URL(endpoint, FetchProgress.CONFIG.BASE_API_URL);
+      
+      // Add blogID if available
+      if (this.blogID) {
+        url.searchParams.set('blogID', this.blogID);
+      }
+      
+      // Add pagination parameters
+      url.searchParams.set('limit', FetchProgress.CONFIG.ITEMS_PER_PAGE.toString());
+      url.searchParams.set('offset', this.currentOffset.toString());
+      
+      // Add additional parameters
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          url.searchParams.set(key, value.toString());
+        }
+      });
+      
+      return url.toString();
+    } catch (error) {
+      console.error('Error building API URL:', error);
+      throw new Error('Invalid API endpoint or parameters');
     }
-    
-    // Add additional parameters
-    Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.set(key, value);
-    });
-    
-    return url.toString();
   }
 
   /**
    * Shows loading indicators
+   * @private
    */
   showLoading() {
-    const { PROGRESS_CONTAINER, SKELETON_CONTAINER, CONTENT_CONTAINER } = FetchProgress.SELECTORS;
-    const progressContainer = document.querySelector(PROGRESS_CONTAINER);
-    const skeletonContainer = document.querySelector(SKELETON_CONTAINER);
-    const contentContainer = document.querySelector(CONTENT_CONTAINER);
+    try {
+      const { PROGRESS_CONTAINER, SKELETON_CONTAINER } = FetchProgress.SELECTORS;
+      const progressContainer = document.querySelector(PROGRESS_CONTAINER);
+      const skeletonContainer = document.querySelector(SKELETON_CONTAINER);
 
-    if (progressContainer) progressContainer.classList.remove('hidden');
-    if (skeletonContainer) skeletonContainer.classList.remove('hidden');
-    if (contentContainer) contentContainer.innerHTML = '';
+      if (progressContainer) progressContainer.classList.remove('hidden');
+      if (skeletonContainer) skeletonContainer.classList.remove('hidden');
+    } catch (error) {
+      console.warn('Error showing loading indicators:', error);
+    }
   }
 
   /**
    * Hides loading indicators
+   * @private
    */
   hideLoading() {
-    const { PROGRESS_CONTAINER, SKELETON_CONTAINER } = FetchProgress.SELECTORS;
-    const progressContainer = document.querySelector(PROGRESS_CONTAINER);
-    const skeletonContainer = document.querySelector(SKELETON_CONTAINER);
+    try {
+      const { PROGRESS_CONTAINER, SKELETON_CONTAINER } = FetchProgress.SELECTORS;
+      const progressContainer = document.querySelector(PROGRESS_CONTAINER);
+      const skeletonContainer = document.querySelector(SKELETON_CONTAINER);
 
-    if (progressContainer) progressContainer.classList.add('hidden');
-    if (skeletonContainer) skeletonContainer.classList.add('hidden');
+      if (progressContainer) progressContainer.classList.add('hidden');
+      if (skeletonContainer) skeletonContainer.classList.add('hidden');
+    } catch (error) {
+      console.warn('Error hiding loading indicators:', error);
+    }
+  }
+
+  /**
+   * Shows or hides the load more button based on hasMore state
+   * @private
+   */
+  updateLoadMoreButton() {
+    const loadMoreContainer = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_CONTAINER);
+    const loadMoreButton = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_BUTTON);
+    
+    if (loadMoreContainer && loadMoreButton) {
+      if (this.hasMore) {
+        loadMoreContainer.classList.remove('hidden');
+        loadMoreButton.disabled = false;
+        loadMoreButton.textContent = 'Load More';
+      } else {
+        loadMoreContainer.classList.add('hidden');
+      }
+    }
+  }
+
+  /**
+   * Shows loading state on load more button
+   * @private
+   */
+  showLoadMoreLoading() {
+    const loadMoreButton = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_BUTTON);
+    if (loadMoreButton) {
+      loadMoreButton.disabled = true;
+      loadMoreButton.innerHTML = '<span class="loading-spinner">Loading...</span>';
+    }
+  }
+
+  /**
+   * Creates and sets up abort controller for the request
+   * @private
+   */
+  setupAbortController() {
+    this.controller = new AbortController();
+    this.signal = this.controller.signal;
+  }
+
+  /**
+   * Handles fetch errors with retry logic
+   * @private
+   * @param {Error} error - The error that occurred
+   * @param {Function} fetchFunction - The fetch function to retry
+   * @returns {Promise<Object>} The response data
+   */
+  async handleFetchError(error, fetchFunction) {
+    // Don't retry if the request was aborted
+    if (error.name === 'AbortError') {
+      throw error;
+    }
+
+    // Retry for network errors or server errors
+    if (this.retryCount < FetchProgress.CONFIG.MAX_RETRIES) {
+      this.retryCount++;
+      console.warn(`Retrying request (${this.retryCount}/${FetchProgress.CONFIG.MAX_RETRIES})...`);
+      
+      await new Promise(resolve => setTimeout(resolve, FetchProgress.CONFIG.RETRY_DELAY * this.retryCount));
+      return this.fetchWithProgress(fetchFunction);
+    }
+    
+    throw error;
   }
 
   /**
@@ -112,19 +249,29 @@ class FetchProgress {
    * @returns {Promise<Object>} Parsed response data
    */
   async fetchWithProgress(progressCallback) {
+    this.setupAbortController();
     this.showLoading();
     
     try {
-      const response = await fetch(this.apiUrl, { signal: this.signal });
+      const response = await fetch(this.apiUrl, { 
+        signal: this.signal,
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
       
       if (!response.ok) {
-        throw new Error(`${FetchProgress.ERROR_MESSAGES.FETCH_ERROR}: ${response.status}`);
+        throw new Error(`${FetchProgress.ERROR_MESSAGES.FETCH_ERROR}: ${response.status} ${response.statusText}`);
       }
       
       const contentLength = response.headers.get('Content-Length');
       const totalBytes = contentLength ? parseInt(contentLength) : null;
-      let loadedBytes = 0;
       
+      if (!response.body) {
+        throw new Error(FetchProgress.ERROR_MESSAGES.INVALID_RESPONSE);
+      }
+      
+      let loadedBytes = 0;
       const reader = response.body.getReader();
       const chunks = [];
       
@@ -147,9 +294,7 @@ class FetchProgress {
       return this.processResponse(chunks);
       
     } catch (error) {
-      console.error('Fetch error:', error);
-      this.hideLoading();
-      throw error;
+      return this.handleFetchError(error, progressCallback);
     }
   }
 
@@ -160,7 +305,7 @@ class FetchProgress {
    * @returns {number} Progress percentage
    */
   calculateProgress(loadedBytes, totalBytes) {
-    if (totalBytes) {
+    if (totalBytes && totalBytes > 0) {
       return Math.min(100, Math.round((loadedBytes / totalBytes) * 100));
     }
     // For small responses or unknown length, use logarithmic scale
@@ -173,20 +318,26 @@ class FetchProgress {
    * @returns {Object|string} Parsed data
    */
   processResponse(chunks) {
-    const combined = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
-    let offset = 0;
-    
-    chunks.forEach(chunk => {
-      combined.set(chunk, offset);
-      offset += chunk.length;
-    });
-    
-    const text = new TextDecoder("utf-8").decode(combined);
-    
     try {
-      return JSON.parse(text);
-    } catch {
-      return text;
+      const combined = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+      let offset = 0;
+      
+      chunks.forEach(chunk => {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      });
+      
+      const text = new TextDecoder("utf-8").decode(combined);
+      
+      try {
+        return JSON.parse(text);
+      } catch (parseError) {
+        console.warn('Response is not JSON, returning as text:', parseError);
+        return text;
+      }
+    } catch (error) {
+      console.error('Error processing response:', error);
+      throw new Error('Failed to process server response');
     }
   }
 
@@ -196,70 +347,97 @@ class FetchProgress {
    */
   updateProgress(percent) {
     // Only update if progress changed significantly
-    if (Math.abs(percent - this.lastProgress) < FetchProgress.CONFIG.MIN_PROGRESS_UPDATE) {
+    if (Math.abs(percent - this.lastProgress) < FetchProgress.CONFIG.MIN_PROGRESS_UPDATE && percent !== 100) {
       return;
     }
     
     this.lastProgress = percent;
     
-    const { PROGRESS_BAR, PROGRESS_PERCENT } = FetchProgress.SELECTORS;
-    const progressBar = document.querySelector(PROGRESS_BAR);
-    const progressPercent = document.querySelector(PROGRESS_PERCENT);
-    
-    if (progressBar) progressBar.style.width = `${percent}%`;
-    if (progressPercent) progressPercent.textContent = `${percent}%`;
-    
-    if (percent === 100) {
-      setTimeout(() => this.hideLoading(), FetchProgress.CONFIG.HIDE_DELAY);
+    try {
+      const { PROGRESS_BAR, PROGRESS_PERCENT } = FetchProgress.SELECTORS;
+      const progressBar = document.querySelector(PROGRESS_BAR);
+      const progressPercent = document.querySelector(PROGRESS_PERCENT);
+      
+      if (progressBar) progressBar.style.width = `${percent}%`;
+      if (progressPercent) progressPercent.textContent = `${percent}%`;
+      
+      if (percent === 100) {
+        setTimeout(() => this.hideLoading(), FetchProgress.CONFIG.HIDE_DELAY);
+      }
+    } catch (error) {
+      console.warn('Error updating progress display:', error);
     }
   }
 
   /**
    * Creates a DOM element from HTML string
    * @param {string} html - HTML string
-   * @returns {Node} DOM element
+   * @returns {Node|null} DOM element or null if creation fails
    */
   createElementFromHTML(html) {
-    const template = document.createElement('template');
-    template.innerHTML = html.trim();
-    return template.content.firstChild;
+    try {
+      const template = document.createElement('template');
+      template.innerHTML = html.trim();
+      return template.content.firstChild;
+    } catch (error) {
+      console.error('Error creating element from HTML:', error, html);
+      return null;
+    }
   }
 
   /**
    * Creates an entry element for rendering
    * @param {Object} entry - Data entry
    * @param {Object} animeInfo - Anime information
-   * @returns {Node} DOM element for the entry
+   * @returns {Node|null} DOM element for the entry or null if creation fails
    */
   createEntryElement(entry, animeInfo) {
-    const quality = this.extractCategory(entry.categories, 'quality') || 'N/A';
-    const episode = this.extractCategory(entry.categories, 'episode') || 'N/A';
-    const season = this.extractCategory(animeInfo.categories, 'season') || 'N/A';
-    const resolutions = this.extractResolutions(entry.categories);
-    const title = animeInfo.title || entry.title || "Untitled";
-    const coverImage = this.extractCoverImage(entry.content);
-    const publishDate = entry.published?.relative || 'Posted recently';
-    
-    const html = `
-      <div class="flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
-        ${this.renderCoverImage(coverImage, title, entry.path)}
-        <div class="flex-1">
-          <div class="flex justify-between items-start">
-            <a href="${entry.path}" class="hover:underline">
-              <h4 class="font-medium line-clamp-2">${title}</h4>
-              <div class="flex gap-2 mt-1">
-                <span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">${quality}</span>
-                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">E${episode} ◦ S${season}</span>
-              </div>
-            </a>
-            ${this.renderResolutions(resolutions)}
+    try {
+      const quality = this.extractCategory(entry.categories, 'quality') || 'N/A';
+      const episode = this.extractCategory(entry.categories, 'episode') || 'N/A';
+      const season = this.extractCategory(animeInfo.categories, 'season') || 'N/A';
+      const resolutions = this.extractResolutions(entry.categories);
+      const title = animeInfo.title || entry.title || "Untitled";
+      const coverImage = this.extractCoverImage(entry.content);
+      const publishDate = entry.published?.relative || 'Posted recently';
+      
+      const html = `
+        <div class="flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
+          ${this.renderCoverImage(coverImage, title, entry.path)}
+          <div class="flex-1">
+            <div class="flex justify-between items-start">
+              <a href="${this.escapeHTML(entry.path)}" class="hover:underline">
+                <h4 class="font-medium line-clamp-2">${this.escapeHTML(title)}</h4>
+                <div class="flex gap-2 mt-1">
+                  <span class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">${this.escapeHTML(quality)}</span>
+                  <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">E${this.escapeHTML(episode)} ◦ S${this.escapeHTML(season)}</span>
+                </div>
+              </a>
+              ${this.renderResolutions(resolutions)}
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">${this.escapeHTML(publishDate)}</p>
           </div>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">${publishDate}</p>
         </div>
-      </div>
-    `;
+      `;
+      
+      return this.createElementFromHTML(html);
+    } catch (error) {
+      console.error('Error creating entry element:', error, entry);
+      return null;
+    }
+  }
+
+  /**
+   * Escapes HTML special characters to prevent XSS
+   * @param {string} text - Text to escape
+   * @returns {string} Escaped text
+   */
+  escapeHTML(text) {
+    if (typeof text !== 'string') return '';
     
-    return this.createElementFromHTML(html);
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   /**
@@ -272,18 +450,18 @@ class FetchProgress {
   renderCoverImage(coverImage, title, path) {
     if (coverImage) {
       return `
-        <div class="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden max-[374px]:hidden">
-          <a href="${path}">
-            <img src="${coverImage}" alt="${title}" class="w-full h-full object-cover" loading="lazy">
+        <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden max-[374px]:hidden">
+          <a href="${this.escapeHTML(path)}">
+            <img src="${this.escapeHTML(coverImage)}" alt="${this.escapeHTML(title)}" class="w-full h-full object-cover" loading="lazy">
           </a>
         </div>
       `;
     }
     
     return `
-      <div class="w-24 h-24 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg overflow-hidden max-[374px]:hidden">
-        <a href="${path}" class="w-full h-full flex items-center justify-center text-white">
-          <span class="text-lg font-bold">${title[0]?.toUpperCase() || 'A'}</span>
+      <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg overflow-hidden max-[374px]:hidden">
+        <a href="${this.escapeHTML(path)}" class="w-full h-full flex items-center justify-center text-white">
+          <span class="text-lg font-bold">${this.escapeHTML(title[0]?.toUpperCase() || 'A')}</span>
         </a>
       </div>
     `;
@@ -295,12 +473,12 @@ class FetchProgress {
    * @returns {string} HTML string
    */
   renderResolutions(resolutions) {
-    if (!resolutions.length) return '';
+    if (!resolutions || !resolutions.length) return '';
     
     return `
       <div class="flex gap-1 flex-wrap justify-end max-[480px]:hidden" style="max-width: 150px;">
         ${resolutions.map(res => 
-          `<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${res}p</span>`
+          `<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${this.escapeHTML(res)}p</span>`
         ).join('')}
       </div>
     `;
@@ -313,9 +491,17 @@ class FetchProgress {
    * @returns {string|null} Extracted value or null
    */
   extractCategory(categories, prefix) {
-    if (!categories) return null;
-    const category = categories.find(cat => cat.startsWith(`${prefix}:`));
-    return category ? category.split(':')[1] : null;
+    if (!categories || !Array.isArray(categories)) return null;
+    
+    try {
+      const category = categories.find(cat => 
+        cat && typeof cat === 'string' && cat.startsWith(`${prefix}:`)
+      );
+      return category ? category.split(':')[1] : null;
+    } catch (error) {
+      console.warn('Error extracting category:', error);
+      return null;
+    }
   }
 
   /**
@@ -324,8 +510,13 @@ class FetchProgress {
    * @returns {Array<string>} Array of resolutions
    */
   extractResolutions(categories) {
-    const resolutionStr = this.extractCategory(categories, 'resolution') || '';
-    return resolutionStr.split('|').filter(Boolean);
+    try {
+      const resolutionStr = this.extractCategory(categories, 'resolution') || '';
+      return resolutionStr.split('|').filter(res => res && res.trim());
+    } catch (error) {
+      console.warn('Error extracting resolutions:', error);
+      return [];
+    }
   }
 
   /**
@@ -334,16 +525,50 @@ class FetchProgress {
    * @returns {string|null} Image URL or null
    */
   extractCoverImage(content) {
-    if (!content) return null;
-    const match = content.match(/src="([^"]+)"/);
-    return match ? match[1] : null;
+    if (!content || typeof content !== 'string') return null;
+    
+    try {
+      const match = content.match(/src="([^"]+)"/);
+      return match ? match[1] : null;
+    } catch (error) {
+      console.warn('Error extracting cover image:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Renders error message in the container
+   * @param {string} message - Error message to display
+   * @param {string} details - Additional error details
+   * @private
+   */
+  renderError(message, details = '') {
+    const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
+    if (!container) return;
+    
+    container.innerHTML = `
+      <div class="p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
+        <div class="flex items-start">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-red-800 dark:text-red-200">${this.escapeHTML(message)}</h3>
+            ${details ? `<div class="mt-2 text-sm text-red-700 dark:text-red-300">${this.escapeHTML(details)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   /**
    * Renders content to the container
    * @param {Object} data - Response data
+   * @param {boolean} isLoadMore - Whether this is a load more operation
    */
-  renderContent(data) {
+  renderContent(data, isLoadMore = false) {
     const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
     if (!container) {
       console.error(FetchProgress.ERROR_MESSAGES.NO_CONTENT_CONTAINER);
@@ -351,54 +576,109 @@ class FetchProgress {
     }
     
     // Handle empty or invalid data
-    if (!data?.entries?.length) {
-      container.innerHTML = '<p class="text-gray-600 dark:text-gray-400">No data available</p>';
+    if (!data || typeof data !== 'object' || !data.entries || !Array.isArray(data.entries)) {
+      this.renderError('Invalid data received from server', 'The server returned an unexpected format.');
+      return;
+    }
+    
+    // Update hasMore state based on the number of items returned
+    // If we get fewer items than requested, we've reached the end
+    this.hasMore = data.entries.length === FetchProgress.CONFIG.ITEMS_PER_PAGE;
+    
+    if (!data.entries.length && !isLoadMore) {
+      container.innerHTML = '<p class="text-gray-600 dark:text-gray-400 p-4 text-center">No content available</p>';
       return;
     }
     
     const fragment = document.createDocumentFragment();
+    let successfulRenders = 0;
     
     data.entries.forEach(entry => {
       try {
         const animeInfo = entry.animeinfo?.entries?.[0] || {};
         const entryElement = this.createEntryElement(entry, animeInfo);
-        fragment.appendChild(entryElement);
+        
+        if (entryElement) {
+          fragment.appendChild(entryElement);
+          successfulRenders++;
+        }
       } catch (error) {
         console.error(FetchProgress.ERROR_MESSAGES.RENDER_ERROR, error, entry);
         const errorElement = this.createElementFromHTML(
           `<div class="p-3 text-red-500 dark:text-red-400">
-            Error rendering entry: ${entry.title || 'Untitled'}
+            Error rendering entry: ${this.escapeHTML(entry.title || 'Untitled')}
           </div>`
         );
-        fragment.appendChild(errorElement);
+        
+        if (errorElement) {
+          fragment.appendChild(errorElement);
+        }
       }
     });
     
-    container.appendChild(fragment);
+    if (successfulRenders === 0 && !isLoadMore) {
+      this.renderError('Failed to render any content', 'All entries could not be processed.');
+      return;
+    }
+    
+    if (isLoadMore) {
+      container.appendChild(fragment);
+    } else {
+      container.innerHTML = '';
+      container.appendChild(fragment);
+    }
+    
+    // Update the load more button state
+    this.updateLoadMoreButton();
   }
 
   /**
    * Executes the fetch and render process
    * @async
+   * @param {boolean} isLoadMore - Whether this is a load more operation
    */
-  async execute() {
-    const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
-    if (!container) {
-      console.log(FetchProgress.ERROR_MESSAGES.NO_CONTENT_CONTAINER);
-      return;
+  async execute(isLoadMore = false) {
+    if (this.isLoading) return;
+    
+    this.isLoading = true;
+    
+    // Show loading state on load more button if it's a load more operation
+    if (isLoadMore) {
+      this.showLoadMoreLoading();
     }
-
+    
     try {
+      this.apiUrl = this.buildApiUrl(this.endpoint, this.baseParams);
       const data = await this.fetchWithProgress(this.updateProgress.bind(this));
-      this.renderContent(data);
+      this.renderContent(data, isLoadMore);
     } catch (error) {
-      if (error.name !== 'AbortError' && container) {
-        container.innerHTML = `
-          <div class="text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
-            ${FetchProgress.ERROR_MESSAGES.FETCH_ERROR}: ${error.message}
-          </div>
-        `;
+      // Don't show error if the request was aborted
+      if (error.name === 'AbortError') {
+        console.log('Request was aborted');
+        return;
       }
+      
+      console.error('Fetch error:', error);
+      
+      let errorMessage = FetchProgress.ERROR_MESSAGES.FETCH_ERROR;
+      let errorDetails = error.message;
+      
+      if (error.message.includes('Failed to fetch')) {
+        errorMessage = FetchProgress.ERROR_MESSAGES.NETWORK_ERROR;
+        errorDetails = 'Please check your internet connection and try again.';
+      }
+      
+      // Only show error if it's not a load more operation
+      if (!isLoadMore) {
+        this.renderError(errorMessage, errorDetails);
+      } else {
+        // For load more errors, revert the offset
+        this.currentOffset -= FetchProgress.CONFIG.ITEMS_PER_PAGE;
+      }
+    } finally {
+      this.isLoading = false;
+      this.hideLoading();
+      this.updateLoadMoreButton();
     }
   }
 
@@ -406,7 +686,20 @@ class FetchProgress {
    * Aborts the current fetch operation
    */
   abort() {
-    this.controller.abort();
+    if (this.controller) {
+      this.controller.abort();
+    }
+  }
+
+  /**
+   * Resets the fetcher to initial state
+   * Useful for refreshing the content from the beginning
+   */
+  reset() {
+    this.currentOffset = 0;
+    this.hasMore = true;
+    this.abort();
+    this.execute(false);
   }
 }
 
@@ -419,3 +712,6 @@ fetcher.execute();
 
 // To abort when needed (e.g., page navigation)
 // window.addEventListener('beforeunload', () => fetcher.abort());
+
+// To reset and load from the beginning
+// fetcher.reset();
