@@ -18,9 +18,9 @@ class AnimeSlider {
   static CONFIG = {
     SLIDER_GAP: 16,
     ITEMS_PER_VIEW: {
-      default: 3,     // For very small screens
-      xs: 3,          // Extra small (mobile portrait)
-      sm: 4,          // Small (mobile landscape)
+      default: 2,     // For very small screens
+      xs: 2,          // Extra small (mobile portrait)
+      sm: 3,          // Small (mobile landscape)
       md: 4,          // Medium (tablets)
       lg: 5,          // Large (small desktops)
       xl: 6           // Extra large (large desktops)
