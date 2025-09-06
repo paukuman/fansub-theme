@@ -1,3 +1,30 @@
+// Utility function to parse episode numbers from various formats
+class EpisodeNumberParser {
+  static parseEpisodeNumber(episodeStr) {
+    if (!episodeStr) return 0;
+
+    // Handle comma as decimal separator (e.g., "99,5" -> "99.5")
+    const normalized = episodeStr.toString().replace(',', '.');
+
+    // Handle special cases like "OVA", "Special", etc.
+    if (isNaN(parseFloat(normalized))) {
+      // Assign high numbers for special episodes to sort them at the end
+      if (normalized.toLowerCase().includes('ova')) return 9998;
+      if (normalized.toLowerCase().includes('special')) return 9999;
+      if (normalized.toLowerCase().includes('movie')) return 9997;
+      return 9990; // Default for other non-numeric values
+    }
+
+    return parseFloat(normalized);
+  }
+
+  // Function to extract episode number from categories array
+  static extractEpisodeNumberFromCategories(categories) {
+    const episodeCat = categories.find(cat => cat.startsWith('episode:'));
+    return episodeCat ? episodeCat.split(':')[1] : null;
+  }
+}
+
 // Utility Classes
 class AnimeError extends Error {
   constructor(message, type = 'error') {
@@ -82,7 +109,6 @@ class AnimeAPIService {
     return this.fetchWithCache(url, `jikan-${malId}`);
   }
 
-  // New method to get anime pictures
   async getAnimePictures(malId) {
     const url = `${this.jikanUrl}/${malId}/pictures`;
     return this.fetchWithCache(url, `pictures-${malId}`);
@@ -93,7 +119,8 @@ class AnimeAPIService {
 class AnimeEpisode {
   constructor(data) {
     this.title = data.title;
-    this.episodeNumber = this.extractEpisodeNumber(data.categories);
+    this.episodeNumber = EpisodeNumberParser.extractEpisodeNumberFromCategories(data.categories);
+    this.episodeNumberParsed = EpisodeNumberParser.parseEpisodeNumber(this.episodeNumber);
     this.malId = this.extractMalId(data.categories);
     this.content = data.content;
     this.path = data.path;
@@ -269,13 +296,92 @@ class AnimeHeader {
 
   render() {
     return `
-      <div class="glass rounded-xl p-6 mb-6">
-        <h1 class="text-2xl font-bold">${this.animeSeries.title}</h1>
-        <h2 class="text-xl text-primary-600 dark:text-primary-400 mt-1">
+      <div class="glass rounded-xl p-4 mb-4">
+        <h1 class="text-xl font-bold truncate">${this.animeSeries.title}</h1>
+        <h2 class="text-md text-primary-600 dark:text-primary-400 mt-1 truncate">
           Episode ${this.currentEpisode.episodeNumber}: ${this.currentEpisode.title}
         </h2>
       </div>
     `;
+  }
+}
+class ServerSection {
+  constructor(streamList, currentServer) {
+    this.streamList = streamList;
+    this.currentServer = currentServer;
+  }
+
+
+  render() {
+    return `
+    <div id="serverSection" class="glass rounded-xl p-4 mb-4 hidden">
+      <h3 class="flex items-center font-bold mb-3 text-sm">
+        <i class="fas fa-server mr-2 text-primary-600 dark:text-primary-400"></i> 
+        Pilih Server
+      </h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        ${this.streamList.map(server => `
+          <button 
+            data-server='${JSON.stringify(server).replace(/'/g, "\\'")}'
+            class="server-btn hover:bg-primary-200 dark:hover:bg-primary-700 p-3 rounded transition-colors text-center ${server.name === this.currentServer.name ? 'bg-primary-200 dark:bg-primary-700' : ''}"
+          >
+            <div class="flex flex-col items-center">
+              <i class="fas ${server.type === 'embed/iframe' ? 'fa-film' : 'fa-play-circle'} text-lg mb-1"></i>
+              <div class="font-medium text-xs">${server.name}</div>
+              <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">${server.type === 'embed/iframe' ? 'Embed' : 'Direct'}</div>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+      
+      <!-- Hapus section kualitas untuk server direct -->
+    </div>
+  `;
+  }
+
+  update(newServer) {
+    this.currentServer = newServer;
+    const serverSection = document.getElementById('serverSection');
+    if (serverSection) {
+      // Hanya update bagian yang perlu diupdate
+      const serverButtons = serverSection.querySelectorAll('.server-btn');
+      serverButtons.forEach(btn => {
+        const server = JSON.parse(btn.dataset.server);
+        if (server.name === newServer.name) {
+          btn.classList.add('bg-primary-200', 'dark:bg-primary-700');
+        } else {
+          btn.classList.remove('bg-primary-200', 'dark:bg-primary-700');
+        }
+      });
+
+      // Hapus bagian update quality section
+    }
+  }
+
+  // Di dalam class ServerSection, perbaiki method bindEvents()
+
+  bindEvents(videoPlayerInstance) {
+    // Server selection
+    document.querySelectorAll('.server-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const server = JSON.parse(e.target.closest('.server-btn').dataset.server);
+        videoPlayerInstance.currentServer = server;
+
+        // Update player section
+        const playerSection = document.getElementById('videoPlayerSection');
+        if (playerSection) {
+          playerSection.innerHTML = videoPlayerInstance.render();
+          videoPlayerInstance.initPlayer();
+          videoPlayerInstance.bindEvents();
+          videoPlayerInstance.setupToggleButtons();
+        }
+
+        // Update server section (gunakan method update, bukan render ulang)
+        if (window.serverSectionInstance) {
+          window.serverSectionInstance.update(server);
+        }
+      });
+    });
   }
 }
 
@@ -284,99 +390,108 @@ class VideoPlayer {
     this.streamList = streamList;
     this.currentServer = streamList[0];
   }
-
   render() {
     return `
-      <div class="glass rounded-xl p-6 mb-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between mb-4">
-          <h3 class="text-lg font-medium mb-2 md:mb-0">Player</h3>
-          <div class="flex space-x-2">
-            <div class="relative">
-              <button id="serverDropdownBtn" class="flex items-center justify-between glass rounded-lg px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors w-48">
-                <span>${this.currentServer.name}</span>
-                <i class="fas fa-chevron-down ml-2 transition-transform"></i>
-              </button>
-              <div id="serverDropdown" class="dropdown-content absolute left-0 right-0 mt-1 glass rounded-lg shadow-lg z-10">
-                <ul class="py-1 max-h-60 overflow-y-auto">
-                  ${this.streamList.map(server => `
-                    <li>
-                      <button data-server='${JSON.stringify(server).replace(/'/g, "\\'")}' class="server-option w-full text-left px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
-                        ${server.name} (${server.type === 'embed/iframe' ? 'Embed' : 'Direct'})
-                      </button>
-                    </li>
-                  `).join('')}
-                </ul>
-              </div>
-            </div>
-            ${this.currentServer.type !== 'embed/iframe' ? `
-              <div class="relative">
-                <button id="qualityDropdownBtn" class="flex items-center justify-between glass rounded-lg px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors w-24">
-                  <span>${this.currentServer.qualities[0].text}</span>
-                  <i class="fas fa-chevron-down ml-2 transition-transform"></i>
-                </button>
-                <div id="qualityDropdown" class="dropdown-content absolute left-0 right-0 mt-1 glass rounded-lg shadow-lg z-10">
-                  <ul class="py-1">
-                    ${this.currentServer.qualities.map(quality => `
-                      <li>
-                        <button data-quality='${JSON.stringify(quality).replace(/'/g, "\\'")}' class="quality-option w-full text-left px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
-                          ${quality.text}
-                        </button>
-                      </li>
-                    `).join('')}
-                  </ul>
-                </div>
-              </div>
-            ` : ''}
-          </div>
+    <div class="glass rounded-xl overflow-hidden mb-4">
+      <div class="bg-black aspect-video flex items-center justify-center" id="videoContainer">
+        ${this.currentServer.type === 'embed/iframe' ? `
+          <iframe src="${this.currentServer.url}" allowfullscreen class="w-full h-full"></iframe>
+        ` : `
+          <video id="player" controls class="w-full h-full"></video>
+        `}
+      </div>
+      
+      <div class="p-3 flex justify-between items-center bg-gray-100 dark:bg-gray-800">
+        <div class="flex space-x-2">
+          <button id="serverToggle" class="flex items-center glass rounded-lg px-3 py-1.5 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+            <i class="fas fa-server mr-1"></i>
+            <span class="max-w-xs truncate">${this.currentServer.name}</span>
+          </button>
+          
+          <!-- Hapus tombol quality toggle -->
         </div>
-        <div class="bg-black rounded-lg aspect-video flex items-center justify-center mb-4" id="videoContainer">
-          ${this.currentServer.type === 'embed/iframe' ? `
-            <iframe src="${this.currentServer.url}" allowfullscreen class="w-full h-full"></iframe>
-          ` : `
-            <video id="player" controls class="w-full h-full"></video>
-          `}
+        
+        <div class="flex space-x-2">
+          <button id="downloadToggle" class="glass rounded-lg px-3 py-1.5 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+            <i class="fas fa-download"></i>
+          </button>
+          <button id="episodesToggle" class="glass rounded-lg px-3 py-1.5 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+            <i class="fas fa-list"></i>
+          </button>
+          <button id="infoToggle" class="glass rounded-lg px-3 py-1.5 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+            <i class="fas fa-info-circle"></i>
+          </button>
         </div>
       </div>
-    `;
+    </div>
+  `;
   }
 
   initPlayer() {
     if (this.currentServer.type !== 'embed/iframe') {
       const video = document.getElementById('player');
       if (video) {
+        // Untuk direct server, tambahkan semua quality sebagai source
         video.innerHTML = this.currentServer.qualities.map(quality => `
-          <source src="${quality.url}" type="video/mp4" size="${quality.text}">
-        `).join('');
+        <source src="${quality.url}" type="video/mp4" size="${quality.text}">
+      `).join('');
 
         // Initialize Plyr if available
         if (window.Plyr) {
-          new Plyr('#player', {
+          const player = new Plyr('#player', {
+            controls: [
+              'play-large',
+              'play',
+              'progress',
+              'current-time',
+              'duration',
+              'mute',
+              'volume',
+              'settings',
+              'pip',
+              'fullscreen'
+            ],
             quality: {
               default: this.currentServer.qualities[0].text,
               options: this.currentServer.qualities.map(q => q.text),
               forced: true
             }
           });
+
+          // Otomatis pilih quality terbaik yang tersedia
+          player.on('ready', () => {
+            if (player.options.quality.options.length > 0) {
+              player.quality = player.options.quality.options[0];
+            }
+          });
         }
       }
     }
   }
-
   bindEvents() {
     // Server dropdown
     const serverDropdownBtn = document.getElementById('serverDropdownBtn');
     const serverDropdown = document.getElementById('serverDropdown');
 
     if (serverDropdownBtn && serverDropdown) {
-      serverDropdownBtn.addEventListener('click', () => {
+      serverDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         serverDropdown.classList.toggle('show');
-        serverDropdownBtn.querySelector('i').classList.toggle('rotate-180');
+
+        // Sembunyikan dropdown kualitas jika terbuka
+        const qualityDropdown = document.getElementById('qualityDropdown');
+        if (qualityDropdown) qualityDropdown.classList.remove('show');
+
+        // Rotate chevron icon
+        const chevron = serverDropdownBtn.querySelector('.fa-chevron-down');
+        if (chevron) chevron.classList.toggle('rotate-180');
       });
 
       // Server selection
       document.querySelectorAll('.server-option').forEach(option => {
         option.addEventListener('click', (e) => {
-          const server = JSON.parse(e.target.dataset.server);
+          e.stopPropagation();
+          const server = JSON.parse(e.target.closest('.server-option').dataset.server);
           this.currentServer = server;
 
           // Re-render player section
@@ -385,6 +500,7 @@ class VideoPlayer {
             playerSection.innerHTML = this.render();
             this.initPlayer();
             this.bindEvents();
+            this.setupToggleButtons();
           }
         });
       });
@@ -395,15 +511,23 @@ class VideoPlayer {
     if (qualityDropdownBtn) {
       const qualityDropdown = document.getElementById('qualityDropdown');
 
-      qualityDropdownBtn.addEventListener('click', () => {
+      qualityDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         qualityDropdown.classList.toggle('show');
-        qualityDropdownBtn.querySelector('i').classList.toggle('rotate-180');
+
+        // Sembunyikan dropdown server jika terbuka
+        if (serverDropdown) serverDropdown.classList.remove('show');
+
+        // Rotate chevron icon
+        const chevron = qualityDropdownBtn.querySelector('.fa-chevron-down');
+        if (chevron) chevron.classList.toggle('rotate-180');
       });
 
       // Quality selection
       document.querySelectorAll('.quality-option').forEach(option => {
         option.addEventListener('click', (e) => {
-          const quality = JSON.parse(e.target.dataset.quality);
+          e.stopPropagation();
+          const quality = JSON.parse(e.target.closest('.quality-option').dataset.quality);
           qualityDropdownBtn.querySelector('span').textContent = quality.text;
 
           // Update video source
@@ -412,6 +536,11 @@ class VideoPlayer {
             video.src = quality.url;
             video.load();
           }
+
+          // Tutup dropdown setelah memilih
+          qualityDropdown.classList.remove('show');
+          const chevron = qualityDropdownBtn.querySelector('.fa-chevron-down');
+          if (chevron) chevron.classList.remove('rotate-180');
         });
       });
     }
@@ -422,12 +551,75 @@ class VideoPlayer {
         document.querySelectorAll('.dropdown-content').forEach(dropdown => {
           dropdown.classList.remove('show');
         });
-        document.querySelectorAll('[id$="DropdownBtn"] i').forEach(icon => {
-          icon.classList.remove('rotate-180');
+
+        // Reset chevron icons
+        document.querySelectorAll('[id$="DropdownBtn"] .fa-chevron-down').forEach(chevron => {
+          chevron.classList.remove('rotate-180');
         });
       }
     });
   }
+
+  setupToggleButtons() {
+    // Server toggle
+    const serverToggle = document.getElementById('serverToggle');
+    const serverSection = document.getElementById('serverSection');
+
+    if (serverToggle && serverSection) {
+      serverToggle.addEventListener('click', () => {
+        serverSection.classList.toggle('hidden');
+        // Hide other sections when showing this one
+        document.getElementById('downloadSection').classList.add('hidden');
+        document.getElementById('episodesSection').classList.add('hidden');
+        document.getElementById('infoSection').classList.add('hidden');
+      });
+    }
+
+    // Hapus quality toggle
+
+    // Download toggle
+    const downloadToggle = document.getElementById('downloadToggle');
+    const downloadSection = document.getElementById('downloadSection');
+
+    if (downloadToggle && downloadSection) {
+      downloadToggle.addEventListener('click', () => {
+        downloadSection.classList.toggle('hidden');
+        // Hide other sections when showing this one
+        document.getElementById('serverSection').classList.add('hidden');
+        document.getElementById('episodesSection').classList.add('hidden');
+        document.getElementById('infoSection').classList.add('hidden');
+      });
+    }
+
+    // Episodes toggle
+    const episodesToggle = document.getElementById('episodesToggle');
+    const episodesSection = document.getElementById('episodesSection');
+
+    if (episodesToggle && episodesSection) {
+      episodesToggle.addEventListener('click', () => {
+        episodesSection.classList.toggle('hidden');
+        // Hide other sections when showing this one
+        document.getElementById('serverSection').classList.add('hidden');
+        document.getElementById('downloadSection').classList.add('hidden');
+        document.getElementById('infoSection').classList.add('hidden');
+      });
+    }
+
+    // Info toggle
+    const infoToggle = document.getElementById('infoToggle');
+    const infoSection = document.getElementById('infoSection');
+
+    if (infoToggle && infoSection) {
+      infoToggle.addEventListener('click', () => {
+        infoSection.classList.toggle('hidden');
+        // Hide other sections when showing this one
+        document.getElementById('serverSection').classList.add('hidden');
+        document.getElementById('downloadSection').classList.add('hidden');
+        document.getElementById('episodesSection').classList.add('hidden');
+      });
+    }
+  }
+
 }
 
 class DownloadSection {
@@ -437,19 +629,19 @@ class DownloadSection {
 
   render() {
     return `
-      <div class="glass rounded-xl p-6 mb-6">
-        <h3 class="flex items-center font-bold mb-4">
+      <div id="downloadSection" class="glass rounded-xl p-4 mb-4 hidden">
+        <h3 class="flex items-center font-bold mb-3 text-sm">
           <i class="fas fa-download mr-2 text-primary-600 dark:text-primary-400"></i> 
           Download Episode
         </h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
           ${this.downloadList.map(download => `
             <button 
               data-download='${JSON.stringify(download).replace(/'/g, "\\'")}'
-              class="download-btn hover:bg-primary-200 dark:hover:bg-primary-700 p-3 rounded-lg transition-colors text-center"
+              class="download-btn hover:bg-primary-200 dark:hover:bg-primary-700 p-2 rounded transition-colors text-center text-xs"
             >
               <div class="font-medium">${download.quality}</div>
-              <div class="text-sm text-gray-600 dark:text-gray-400">${download.size}</div>
+              <div class="text-gray-600 dark:text-gray-400">${download.size}</div>
             </button>
           `).join('')}
         </div>
@@ -468,18 +660,18 @@ class DownloadSection {
 
   showDownloadModal(download) {
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
       <div class="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-md w-full mx-2">
         <div class="flex justify-between items-center mb-4">
-          <h3 class="font-bold">Download ${download.quality} (${download.size})</h3>
+          <h3 class="font-bold text-sm">Download ${download.quality} (${download.size})</h3>
           <button class="close-modal text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="space-y-2">
           ${download.urls.map(url => `
-            <a href="${url.url}" target="_blank" class="block p-3 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+            <a href="${url.url}" target="_blank" class="block p-2 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm">
               <div class="flex items-center">
                 <i class="fab ${this.getProviderIcon(url.name)} mr-2"></i>
                 <span>${url.name}</span>
@@ -492,6 +684,12 @@ class DownloadSection {
 
     modal.querySelector('.close-modal').addEventListener('click', () => {
       modal.remove();
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
     });
 
     document.body.appendChild(modal);
@@ -508,79 +706,60 @@ class DownloadSection {
 
 class EpisodeNavigation {
   constructor(episodesList, currentEpisode, blogID) {
-    this.episodesList = episodesList;
+    // Urutkan episode berdasarkan nomor episode yang sudah diparsing
+    this.episodesList = episodesList.sort((a, b) => {
+      return a.episodeNumberParsed - b.episodeNumberParsed;
+    });
     this.currentEpisode = currentEpisode;
     this.blogID = blogID;
   }
 
   render() {
+    // Temukan index episode saat ini berdasarkan episodeNumberParsed
     const currentIndex = this.episodesList.findIndex(ep =>
-      ep.episodeNumber === this.currentEpisode.episodeNumber
+      ep.episodeNumberParsed === this.currentEpisode.episodeNumberParsed
     );
 
     const prevEpisode = currentIndex > 0 ? this.episodesList[currentIndex - 1] : null;
     const nextEpisode = currentIndex < this.episodesList.length - 1 ? this.episodesList[currentIndex + 1] : null;
 
     return `
-      <div class="glass rounded-xl p-6 mb-6">
-        <div class="flex justify-between items-center">
+      <div id="episodesSection" class="glass rounded-xl p-4 mb-4 hidden">
+        <div class="flex justify-between items-center mb-3">
           ${prevEpisode ? `
-            <a href="${prevEpisode.path}" class="flex items-center glass rounded-lg px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
-              <i class="fas fa-arrow-left mr-2"></i> Previous
+            <a href="${prevEpisode.path}" class="flex items-center glass rounded-lg px-3 py-1.5 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+              <i class="fas fa-arrow-left mr-1"></i> Previous
             </a>
           ` : '<div></div>'}
           
-          <button id="episodeListToggle" class="flex items-center glass rounded-lg px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
-            <i class="fas fa-list mr-2"></i> Episode List
-          </button>
-          
           ${nextEpisode ? `
-            <a href="${nextEpisode.path}" class="flex items-center glass rounded-lg px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors">
-              Next <i class="fas fa-arrow-right ml-2"></i>
+            <a href="${nextEpisode.path}" class="flex items-center glass rounded-lg px-3 py-1.5 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+              Next <i class="fas fa-arrow-right ml-1"></i>
             </a>
           ` : '<div></div>'}
         </div>
         
-        <div id="episodeList" class="episode-list mt-4">
-          <div class="glass rounded-lg overflow-hidden">
-            <div class="p-4 bg-primary-100 dark:bg-primary-800">
-              <h3 class="font-bold">All Episodes</h3>
-            </div>
-            <div class="max-h-80 overflow-y-auto">
-              <table class="w-full">
-                <tbody>
-                  ${this.episodesList.map(episode => `
-                    <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-primary-100 dark:hover:bg-primary-800 transition-colors">
-                      <td class="p-3">
-                        <a href="${episode.path}" class="flex items-center">
-                          <span class="w-8 text-center font-medium">${episode.episodeNumber}</span>
-                          <span class="ml-2">${episode.title || 'Episode ' + episode.episodeNumber}</span>
-                        </a>
-                      </td>
-                      <td class="p-3 text-right text-sm text-gray-600 dark:text-gray-400">
-                        ${episode.published?.relative || 'N/A'}
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <div class="max-h-80 overflow-y-auto">
+          <table class="w-full">
+            <tbody>
+              ${this.episodesList.map(episode => `
+                <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-primary-100 dark:hover:bg-primary-800 transition-colors ${episode.episodeNumberParsed === this.currentEpisode.episodeNumberParsed ? 'bg-primary-100 dark:bg-primary-800' : ''}">
+                  <td class="p-2">
+                    <a href="${episode.path}" class="flex items-center text-sm">
+                      <span class="w-8 text-center font-medium">${episode.episodeNumber}</span>
+                      <span class="ml-2 truncate">${episode.title || 'Episode ' + episode.episodeNumber}</span>
+                    </a>
+                  </td>
+                  <td class="p-2 text-right text-xs text-gray-600 dark:text-gray-400">
+                    ${episode.published?.relative || 'N/A'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
         </div>
       </div>
     `;
-  }
-
-  bindEvents() {
-    const toggleBtn = document.getElementById('episodeListToggle');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => {
-        const episodeList = document.getElementById('episodeList');
-        if (episodeList) {
-          episodeList.classList.toggle('open');
-        }
-      });
-    }
   }
 }
 
@@ -593,19 +772,17 @@ class AnimeInfoSection {
   render() {
     const jikanData = this.animeSeries.fullInfo;
     const pictures = this.animeSeries.pictures;
-    
+
     // Get the path from animeInfoData response
     const animeInfoPath = this.animeInfoData?.response?.entries[0]?.path;
     const animeInfoUrl = animeInfoPath ? `${window.location.origin}${animeInfoPath}` : '#';
 
     return `
-      <div class="glass rounded-xl p-6 mb-6">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-bold">About ${this.animeSeries.title}</h2>
-        </div>
+      <div id="infoSection" class="glass rounded-xl p-4 mb-4 hidden">
+        <h2 class="text-lg font-bold mb-3">About ${this.animeSeries.title}</h2>
         
         ${pictures.length > 0 ? `
-          <div class="mb-6">
+          <div class="mb-4">
             <div class="anime-cover-slider relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 aspect-[3/4] max-w-xs mx-auto">
               ${pictures.map((img, index) => `
                 <div class="slide ${index === 0 ? 'active' : ''}">
@@ -614,14 +791,14 @@ class AnimeInfoSection {
               `).join('')}
               
               ${pictures.length > 1 ? `
-                <button class="slider-nav prev absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
+                <button class="slider-nav prev absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1 rounded-full hover:bg-opacity-70 transition-all text-xs">
                   <i class="fas fa-chevron-left"></i>
                 </button>
-                <button class="slider-nav next absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all">
+                <button class="slider-nav next absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1 rounded-full hover:bg-opacity-70 transition-all text-xs">
                   <i class="fas fa-chevron-right"></i>
                 </button>
                 
-                <div class="slider-dots absolute bottom-2 left-0 right-0 flex justify-center space-x-2">
+                <div class="slider-dots absolute bottom-2 left-0 right-0 flex justify-center space-x-1">
                   ${pictures.map((_, index) => `
                     <button class="dot w-2 h-2 rounded-full bg-white bg-opacity-50 ${index === 0 ? 'bg-opacity-100' : ''}" data-index="${index}"></button>
                   `).join('')}
@@ -632,53 +809,53 @@ class AnimeInfoSection {
         ` : ''}
         
         ${jikanData?.synopsis ? `
-          <div class="mb-6">
-            <h3 class="font-semibold mb-2">Synopsis</h3>
-            <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
-              ${jikanData.synopsis.substring(0, 250)}...
+          <div class="mb-4">
+            <h3 class="font-semibold mb-2 text-sm">Synopsis</h3>
+            <p class="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
+              ${jikanData.synopsis.substring(0, 200)}...
             </p>
           </div>
         ` : ''}
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <h3 class="font-semibold mb-2">Information</h3>
-            <ul class="space-y-2">
+            <ul class="space-y-1">
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Type:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Type:</span>
                 <span>${this.animeSeries.type || 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Episodes:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Episodes:</span>
                 <span>${jikanData?.episodes || 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Status:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Status:</span>
                 <span>${this.animeSeries.status || 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Aired:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Aired:</span>
                 <span>${jikanData?.aired?.string || 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Studios:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Studios:</span>
                 <span>${jikanData?.studios?.map(s => s.name).join(', ') || 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Source:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Source:</span>
                 <span>${jikanData?.source || 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Genres:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Genres:</span>
                 <div>
-                  ${this.animeSeries.genres.slice(0, 5).map(genre => `
-                    <span class="inline-block px-2 py-1 text-xs rounded-full bg-primary-100 dark:bg-primary-800 mr-2 mb-2">
+                  ${this.animeSeries.genres.slice(0, 3).map(genre => `
+                    <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-primary-100 dark:bg-primary-800 mr-1 mb-1">
                       ${genre}
                     </span>
                   `).join('')}
-                  ${this.animeSeries.genres.length > 5 ? `
-                    <span class="inline-block px-2 py-1 text-xs rounded-full bg-primary-100 dark:bg-primary-800 mr-2 mb-2">
-                      +${this.animeSeries.genres.length - 5} more
+                  ${this.animeSeries.genres.length > 3 ? `
+                    <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-primary-100 dark:bg-primary-800 mr-1 mb-1">
+                      +${this.animeSeries.genres.length - 3} more
                     </span>
                   ` : ''}
                 </div>
@@ -688,40 +865,38 @@ class AnimeInfoSection {
           
           <div>
             <h3 class="font-semibold mb-2">Statistics</h3>
-            <ul class="space-y-2">
+            <ul class="space-y-1">
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Rating:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Rating:</span>
                 <span>${jikanData?.rating || 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Score:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Score:</span>
                 <span>${jikanData?.score || 'N/A'} ${jikanData?.scored_by ? `(${jikanData.scored_by.toLocaleString()} users)` : ''}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Ranked:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Ranked:</span>
                 <span>${jikanData?.rank ? `#${jikanData.rank}` : 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Popularity:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Popularity:</span>
                 <span>${jikanData?.popularity ? `#${jikanData.popularity}` : 'N/A'}</span>
               </li>
               <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Members:</span>
+                <span class="w-20 text-gray-600 dark:text-gray-400">Members:</span>
                 <span>${jikanData?.members?.toLocaleString() || 'N/A'}</span>
-              </li>
-              <li class="flex">
-                <span class="w-24 text-gray-600 dark:text-gray-400">Favorites:</span>
-                <span>${jikanData?.favorites?.toLocaleString() || 'N/A'}</span>
               </li>
             </ul>
           </div>
         </div>
 
         ${animeInfoPath ? `
-            <a href="${animeInfoUrl}" class="flex items-center glass rounded-lg px-4 py-2 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
-              <i class="fas fa-external-link-alt mr-2"></i> Lihat Selengkapnya
+          <div class="mt-4">
+            <a href="${animeInfoUrl}" class="flex items-center glass rounded-lg px-3 py-1.5 hover:bg-primary-200 dark:hover:bg-primary-700 transition-colors text-sm">
+              <i class="fas fa-external-link-alt mr-1"></i> Lihat Selengkapnya
             </a>
-          ` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -738,7 +913,7 @@ class AnimeInfoSection {
       const showSlide = (index) => {
         slides.forEach(slide => slide.classList.remove('active'));
         dots.forEach(dot => dot.classList.remove('bg-opacity-100'));
-        
+
         slides[index].classList.add('active');
         dots[index].classList.add('bg-opacity-100');
         currentSlide = index;
@@ -807,10 +982,10 @@ class AnimePlayerApp {
 
       // First fetch the episode data to get the mal_id
       const episodeData = await this.apiService.getEpisodeData(this.blogID, this.postID);
-      
+
       // Process episode data
       this.currentEpisode = new AnimeEpisode(episodeData.response.entry);
-      
+
       // Get MAL ID from current episode
       const malId = this.currentEpisode.malId;
       if (!malId) {
@@ -825,8 +1000,10 @@ class AnimePlayerApp {
         this.apiService.getAnimePictures(malId)
       ]);
 
-      // Process episodes list
-      this.episodesList = episodesListData.entries.map(entry => new AnimeEpisode(entry));
+      // Process episodes list - urutkan berdasarkan episodeNumberParsed
+      this.episodesList = episodesListData.entries
+        .map(entry => new AnimeEpisode(entry))
+        .sort((a, b) => a.episodeNumberParsed - b.episodeNumberParsed);
 
       // Process anime series data
       this.animeSeries = new AnimeSeries(
@@ -835,8 +1012,7 @@ class AnimePlayerApp {
         picturesData
       );
 
-      
-    this.animeInfoData = animeInfoData;
+      this.animeInfoData = animeInfoData;
 
       // Render the app
       this.render();
@@ -908,23 +1084,26 @@ class AnimePlayerApp {
     if (!this.appElement || !this.currentEpisode || !this.animeSeries) return;
 
     this.appElement.innerHTML = `
-      ${new AnimeHeader(this.animeSeries, this.currentEpisode).render()}
-      <div id="videoPlayerSection">
-        ${new VideoPlayer(this.currentEpisode.streamList).render()}
-      </div>
-      ${new DownloadSection(this.currentEpisode.downloadList).render()}
-      ${new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).render()}
-      ${new AnimeInfoSection(this.animeSeries, this.animeInfoData).render()}
-    `;
+    ${new AnimeHeader(this.animeSeries, this.currentEpisode).render()}
+    <div id="videoPlayerSection">
+      ${new VideoPlayer(this.currentEpisode.streamList).render()}
+    </div>
+    ${new ServerSection(this.currentEpisode.streamList, this.currentEpisode.streamList[0]).render()}
+    ${new DownloadSection(this.currentEpisode.downloadList).render()}
+    ${new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).render()}
+    ${new AnimeInfoSection(this.animeSeries, this.animeInfoData).render()}
+  `;
 
     // Initialize video player
     const videoPlayer = new VideoPlayer(this.currentEpisode.streamList);
     videoPlayer.initPlayer();
     videoPlayer.bindEvents();
+    videoPlayer.setupToggleButtons();
 
     // Bind other events
+    window.serverSectionInstance = new ServerSection(this.currentEpisode.streamList, this.currentEpisode.streamList[0]);
+    window.serverSectionInstance.bindEvents(videoPlayer);
     new DownloadSection(this.currentEpisode.downloadList).bindEvents();
-    new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).bindEvents();
     new AnimeInfoSection(this.animeSeries).bindEvents();
   }
 }
@@ -960,8 +1139,15 @@ if (!window.Plyr) {
   document.head.appendChild(plyrJS);
 }
 
-// Add CSS for the slider
-const sliderCSS = `
+// Add CSS for the slider and dropdowns
+const customCSS = `
+/* Style untuk episode number dengan format berbeda */
+  .episode-number {
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+  }
+    /* End style episode number */
+
   .anime-cover-slider {
     position: relative;
   }
@@ -988,8 +1174,58 @@ const sliderCSS = `
   .slider-dots {
     display: flex;
   }
+  
+  .dropdown-content {
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.95);
+  }
+  
+  .dark .dropdown-content {
+    background: rgba(30, 41, 59, 0.95);
+  }
+  
+  .server-option, .quality-option {
+    cursor: pointer;
+  }
+  
+  .server-option:hover, .quality-option:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  .rotate-180 {
+    transform: rotate(180deg);
+    transition: transform 0.2s ease;
+  }
+  
+  /* Fix for dropdown positioning */
+  .relative {
+    position: relative;
+  }
+  
+  .dropdown-content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+  }
+  
+  /* Glass effect for dropdown */
+  .glass {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 `;
 
 const styleElement = document.createElement('style');
-styleElement.textContent = sliderCSS;
+styleElement.textContent = customCSS;
 document.head.appendChild(styleElement);

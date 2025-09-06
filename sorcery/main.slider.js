@@ -33,7 +33,7 @@ class AnimeSlider {
       lg: 1024,       // Large devices (desktops)
       xl: 1280        // Extra large devices (large desktops)
     },
-    ASPECT_RATIO: 9/16 // 9:16 aspect ratio for images
+    ASPECT_RATIO: 3/4 // aspect ratio for images
   };
 
   /**
@@ -555,12 +555,10 @@ class AnimeInfoFetcher extends FetchProgress {
   createAnimeCard(entry) {
     try {
       const rating = this.extractCategory(entry.categories, 'rate') || 'N/A';
-      const malId = this.extractCategory(entry.categories, 'mal_id');
       const status = this.extractCategory(entry.categories, 'status') || 'Unknown';
       const type = this.extractCategory(entry.categories, 'type') || 'Unknown';
       const title = entry.title || "Untitled";
       const coverImage = this.extractCoverImage(entry.content);
-      const malUrl = malId ? `https://myanimelist.net/anime/${malId}` : '#';
       
       const html = `
         <div class="slider-item flex-shrink-0 group">
@@ -597,13 +595,6 @@ class AnimeInfoFetcher extends FetchProgress {
               
               <div class="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mt-auto">
                 <span class="capitalize">${this.escapeHTML(status)}</span>
-                ${malId ? `
-                  <a href="${malUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-600 dark:hover:text-blue-400">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                    </svg>
-                  </a>
-                ` : ''}
               </div>
             </div>
           </div>

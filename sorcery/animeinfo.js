@@ -25,40 +25,41 @@ class AnimeInfo {
    * Constructor - Initializes the AnimeInfo instance
    * @constructor
    */
-    constructor() {
-  this.blogID = document.querySelector('meta[name="blogID"]').content;
-  this.postID = document.querySelector('meta[name="postID"]').content;
-  this.malID = null;
-  this.animeData = null;
-  this.characterData = null;
-  this.episodeData = []; // Inisialisasi sebagai array kosong, bukan null
-  this.picturesData = null;
-  this.container = document.getElementById('animeinfo-container');
-  this.shareData = {
-    title: '',
-    text: '',
-    url: window.location.href
-  };
-  this.episodeOffset = 1;
-  this.episodeLimit = 4;
-  this.isLoadingEpisodes = false;
-  this.hasMoreEpisodes = true;
-  
-  this.init();
-}
+  constructor() {
+    this.blogID = document.querySelector('meta[name="blogID"]').content;
+    this.postID = document.querySelector('meta[name="postID"]').content;
+    this.malID = null;
+    this.animeData = null;
+    this.characterData = null;
+    this.episodeData = []; // Inisialisasi sebagai array kosong, bukan null
+    this.picturesData = null;
+    this.container = document.getElementById('animeinfo-container');
+    this.shareData = {
+      title: '',
+      text: '',
+      url: window.location.href
+    };
+    this.episodeOffset = 1;
+    this.episodeLimit = 4;
+    this.isLoadingEpisodes = false;
+    this.hasMoreEpisodes = true;
+
+    this.init();
+  }
   /**
        * Renders skeleton loading state
        * @returns {string} HTML string for skeleton loading
        */
   renderSkeleton() {
     return `
-      <div class="space-y-6">
-        ${this.renderHeaderSkeleton()}
-        ${this.renderSynopsisSkeleton()}
-        ${this.renderEpisodesSkeleton()}
-        ${this.renderCharactersSkeleton()}
-      </div>
-    `;
+    <div class="space-y-6">
+      ${this.renderHeaderSkeleton()}
+      ${this.renderSynopsisSkeleton()}
+      ${this.renderEpisodesSkeleton()}
+      ${this.renderCharactersSkeleton()}
+      ${this.renderStatisticsSkeleton()}  <!-- Tambahkan skeleton untuk statistics -->
+    </div>
+  `;
   }
 
   /**
@@ -212,10 +213,6 @@ class AnimeInfo {
     `;
   }
 
-  /**
-   * Initializes the anime info fetching and rendering process
-   * @async
-   */
   async init() {
     try {
       // Show skeleton while loading
@@ -231,7 +228,6 @@ class AnimeInfo {
         epsMain.classList.add('flex-1', 'space-y-6');
         epsMain.setAttribute('id', 'episode-container');
         this.container.replaceWith(epsMain);
-
         return;
       } else if (!pageType || pageType !== 'animeinfo') {
         this.container.innerHTML = '';
@@ -244,12 +240,12 @@ class AnimeInfo {
         throw new Error('MAL ID not found in anime info');
       }
 
-      await Promise.all([
-        this.fetchJikanAnimeData(),
-        this.fetchCharacterData(),
-        this.fetchEpisodeData(),
-        this.fetchPicturesData()
-      ]);
+      // Fetch data yang membutuhkan MAL ID secara berurutan
+      await this.fetchJikanAnimeData();
+      await this.fetchCharacterData();
+      await this.fetchEpisodeData();
+      await this.fetchPicturesData();
+      await this.fetchStatisticsData(); // Pastikan MAL ID sudah tersedia
 
       this.render();
       this.setupBackdrop();
@@ -374,143 +370,143 @@ class AnimeInfo {
     }
   }
 
-async fetchEpisodeData(loadMore = false) {
-  if (this.isLoadingEpisodes) return;
-  
-  try {
-    this.isLoadingEpisodes = true;
-    
-    // Update UI untuk menunjukkan loading state
-    this.updateEpisodeLoadingState(true);
-    
-    // Jika bukan load more, reset offset
-    if (!loadMore) {
-      this.episodeOffset = 0;
-      this.hasMoreEpisodes = true;
-      this.episodeData = []; // Pastikan episodeData adalah array kosong
-    }
-    
-    const response = await fetch(
-      `https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode&limit=${this.episodeLimit}&offset=${this.episodeOffset}`
-    );
-    
-    if (!response.ok) throw new Error('Episode API response was not ok');
-    
-    const data = await response.json();
-    
-    // Periksa jika response adalah 404 (tidak ada konten lagi)
-    if (data.status === 404) {
-      this.hasMoreEpisodes = false;
-      return;
-    }
-    
-    const newEpisodes = data.entries || [];
-    
-    // Jika load more, tambahkan ke existing data
-    if (loadMore) {
-      this.episodeData = [...this.episodeData, ...newEpisodes];
-    } else {
-      this.episodeData = newEpisodes;
-    }
-    
-    // Periksa apakah masih ada episode lagi
-    this.hasMoreEpisodes = newEpisodes.length === this.episodeLimit;
-    this.episodeOffset += parseInt(newEpisodes.length) + 1;
-    
-  } catch (error) {
-    console.error('Error fetching episode data:', error);
-    // Pastikan episodeData tetap array kosong jika error
-    if (!loadMore) this.episodeData = [];
-  } finally {
-    this.isLoadingEpisodes = false;
-    // Update UI untuk menyembunyikan loading state
-    this.updateEpisodeLoadingState(false);
-  }
-}
+  async fetchEpisodeData(loadMore = false) {
+    if (this.isLoadingEpisodes) return;
 
-/**
- * Memperbarui UI untuk menunjukkan/menyembunyikan loading state
- * @param {boolean} isLoading - Apakah sedang dalam state loading
- */
-updateEpisodeLoadingState(isLoading) {
-  const loadMoreBtn = this.container.querySelector('.load-more-episodes');
-  const episodesContainer = this.container.querySelector('.episodes-list');
-  
-  if (isLoading) {
-    // Tampilkan loading indicator di tombol
-    if (loadMoreBtn) {
-      loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Loading...';
-      loadMoreBtn.disabled = true;
-    }
-    
-    // Tambahkan skeleton loading untuk episode baru (jika load more)
-    if (this.episodeData && this.episodeData.length > 0 && loadMoreBtn) {
-      this.addEpisodeSkeletons();
-    }
-  } else {
-    // Sembunyikan loading indicator
-    if (loadMoreBtn) {
-      loadMoreBtn.innerHTML = 'Load More Episodes';
-      loadMoreBtn.disabled = false;
-      
-      // Sembunyikan tombol jika tidak ada episode lagi
-      if (!this.hasMoreEpisodes) {
-        loadMoreBtn.style.display = 'none';
-        
-        // Tambahkan pesan bahwa semua episode telah dimuat
-        const loadedAllMessage = document.createElement('div');
-        loadedAllMessage.className = 'notif-lasteps text-center text-sm text-gray-500 dark:text-gray-400 mt-4';
-        loadedAllMessage.textContent = 'All episodes loaded';
-        document.querySelector('.notif-lasteps') ? null : loadMoreBtn.parentNode.appendChild(loadedAllMessage);
+    try {
+      this.isLoadingEpisodes = true;
+
+      // Update UI untuk menunjukkan loading state
+      this.updateEpisodeLoadingState(true);
+
+      // Jika bukan load more, reset offset
+      if (!loadMore) {
+        this.episodeOffset = 0;
+        this.hasMoreEpisodes = true;
+        this.episodeData = []; // Pastikan episodeData adalah array kosong
       }
+
+      const response = await fetch(
+        `https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode&limit=${this.episodeLimit}&offset=${this.episodeOffset}`
+      );
+
+      if (!response.ok) throw new Error('Episode API response was not ok');
+
+      const data = await response.json();
+
+      // Periksa jika response adalah 404 (tidak ada konten lagi)
+      if (data.status === 404) {
+        this.hasMoreEpisodes = false;
+        return;
+      }
+
+      const newEpisodes = data.entries || [];
+
+      // Jika load more, tambahkan ke existing data
+      if (loadMore) {
+        this.episodeData = [...this.episodeData, ...newEpisodes];
+      } else {
+        this.episodeData = newEpisodes;
+      }
+
+      // Periksa apakah masih ada episode lagi
+      this.hasMoreEpisodes = newEpisodes.length === this.episodeLimit;
+      this.episodeOffset += parseInt(newEpisodes.length) + 1;
+
+    } catch (error) {
+      console.error('Error fetching episode data:', error);
+      // Pastikan episodeData tetap array kosong jika error
+      if (!loadMore) this.episodeData = [];
+    } finally {
+      this.isLoadingEpisodes = false;
+      // Update UI untuk menyembunyikan loading state
+      this.updateEpisodeLoadingState(false);
     }
-    
-    // Hapus skeleton loading
-    this.removeEpisodeSkeletons();
   }
-}
 
-/**
- * Menambahkan skeleton loading untuk episode
- */
+  /**
+   * Memperbarui UI untuk menunjukkan/menyembunyikan loading state
+   * @param {boolean} isLoading - Apakah sedang dalam state loading
+   */
+  updateEpisodeLoadingState(isLoading) {
+    const loadMoreBtn = this.container.querySelector('.load-more-episodes');
+    const episodesContainer = this.container.querySelector('.episodes-list');
 
-addEpisodeSkeletons() {
-  const episodesContainer = this.container.querySelector('.episodes-list');
-  if (!episodesContainer) return;
-  
-  // Pastikan episodeData ada sebelum melanjutkan
-  if (!this.episodeData) return;
-  
-  // Tambahkan 3 skeleton loading
-  for (let i = 0; i < 3; i++) {
-    const skeleton = document.createElement('div');
-    skeleton.className = 'episode-item flex items-center p-3';
-    skeleton.innerHTML = `
+    if (isLoading) {
+      // Tampilkan loading indicator di tombol
+      if (loadMoreBtn) {
+        loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Loading...';
+        loadMoreBtn.disabled = true;
+      }
+
+      // Tambahkan skeleton loading untuk episode baru (jika load more)
+      if (this.episodeData && this.episodeData.length > 0 && loadMoreBtn) {
+        this.addEpisodeSkeletons();
+      }
+    } else {
+      // Sembunyikan loading indicator
+      if (loadMoreBtn) {
+        loadMoreBtn.innerHTML = 'Load More Episodes';
+        loadMoreBtn.disabled = false;
+
+        // Sembunyikan tombol jika tidak ada episode lagi
+        if (!this.hasMoreEpisodes) {
+          loadMoreBtn.style.display = 'none';
+
+          // Tambahkan pesan bahwa semua episode telah dimuat
+          const loadedAllMessage = document.createElement('div');
+          loadedAllMessage.className = 'notif-lasteps text-center text-sm text-gray-500 dark:text-gray-400 mt-4';
+          loadedAllMessage.textContent = 'All episodes loaded';
+          document.querySelector('.notif-lasteps') ? null : loadMoreBtn.parentNode.appendChild(loadedAllMessage);
+        }
+      }
+
+      // Hapus skeleton loading
+      this.removeEpisodeSkeletons();
+    }
+  }
+
+  /**
+   * Menambahkan skeleton loading untuk episode
+   */
+
+  addEpisodeSkeletons() {
+    const episodesContainer = this.container.querySelector('.episodes-list');
+    if (!episodesContainer) return;
+
+    // Pastikan episodeData ada sebelum melanjutkan
+    if (!this.episodeData) return;
+
+    // Tambahkan 3 skeleton loading
+    for (let i = 0; i < 3; i++) {
+      const skeleton = document.createElement('div');
+      skeleton.className = 'episode-item flex items-center p-3';
+      skeleton.innerHTML = `
       <div class="w-16 h-9 flex-shrink-0 mr-3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
       <div class="flex-1">
         <div class="h-4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-2 w-3/4"></div>
         <div class="h-3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse w-1/2"></div>
       </div>
     `;
-    episodesContainer.appendChild(skeleton);
-  }
-}
-
-/**
- * Menghapus skeleton loading untuk episode
- */
-removeEpisodeSkeletons() {
-  const episodesContainer = this.container.querySelector('.episodes-list');
-  if (!episodesContainer) return;
-  
-  // Hapus semua elemen dengan class skeleton (jika ada)
-  const skeletons = episodesContainer.querySelectorAll('.bg-gray-300, .bg-gray-700');
-  skeletons.forEach(skeleton => {
-    if (skeleton.closest('.episode-item')) {
-      skeleton.closest('.episode-item').remove();
+      episodesContainer.appendChild(skeleton);
     }
-  });
-}
+  }
+
+  /**
+   * Menghapus skeleton loading untuk episode
+   */
+  removeEpisodeSkeletons() {
+    const episodesContainer = this.container.querySelector('.episodes-list');
+    if (!episodesContainer) return;
+
+    // Hapus semua elemen dengan class skeleton (jika ada)
+    const skeletons = episodesContainer.querySelectorAll('.bg-gray-300, .bg-gray-700');
+    skeletons.forEach(skeleton => {
+      if (skeleton.closest('.episode-item')) {
+        skeleton.closest('.episode-item').remove();
+      }
+    });
+  }
   /**
    * Displays error message in the container
    * @param {string} message - Error message to display
@@ -529,11 +525,12 @@ removeEpisodeSkeletons() {
    */
   render() {
     this.container.innerHTML = `
-      ${this.renderHeader()}
-      ${this.renderSynopsis()}
-      ${this.renderEpisodes()}
-      ${this.renderCharacters()}
-    `;
+    ${this.renderHeader()}
+    ${this.renderSynopsis()}
+    ${this.renderEpisodes()}
+    ${this.renderCharacters()}
+    ${this.renderStatistics()} 
+  `;
 
     // Setup event listeners setelah render
     this.setupEventListeners();
@@ -560,19 +557,19 @@ removeEpisodeSkeletons() {
     }
 
     // Setup untuk tombol load more episodes
-  const loadMoreBtn = this.container.querySelector('.load-more-episodes');
-  if (loadMoreBtn) {
-    loadMoreBtn.addEventListener('click', () => {
-      this.loadMoreEpisodes();
-    });
+    const loadMoreBtn = this.container.querySelector('.load-more-episodes');
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', () => {
+        this.loadMoreEpisodes();
+      });
+    }
+
+    // this.setupInfiniteScroll();
   }
 
-  // this.setupInfiniteScroll();
-  }
-
-   /**
-   * Menampilkan modal dengan semua karakter
-   */
+  /**
+  * Menampilkan modal dengan semua karakter
+  */
   showAllCharacters() {
     // Hapus modal karakter yang sudah ada jika ada
     const existingModal = document.getElementById('characters-modal');
@@ -623,22 +620,22 @@ removeEpisodeSkeletons() {
   renderCharacterModalItem(character) {
     const imageUrl = character.character.images?.jpg?.image_url;
     const isQuestionmarkGif = imageUrl && /questionmark_\d+\.gif/.test(imageUrl);
-    const charImage = isQuestionmarkGif ? 'https://placehold.co/225x350' : imageUrl || 'https://placehold.co/225x350';
+    const charImage = isQuestionmarkGif ? 'https://placehold.co/100x100' : imageUrl || 'https://placehold.co/100x100';
     const seiyuu = character.voice_actors?.find(va => va.language === 'Japanese');
     const role = character.role || 'Supporting';
 
     return `
-      <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md hover:shadow-lg transition-shadow">
-        <div class="cast-card w-full h-40 bg-gradient-to-br from-gray-400 to-gray-600 mb-2 overflow-hidden rounded-lg">
-          <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/225x350'">
-        </div>
-        <div class="mb-1">
-          <span class="text-xs px-2 py-1 rounded-full ${role === 'Main' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">${role}</span>
-        </div>
-        <h3 class="font-medium text-sm mb-1">${character.character.name}</h3>
-        ${seiyuu ? `<p class="text-xs text-gray-600 dark:text-gray-400">${seiyuu.person.name}</p>` : ''}
+    <div class="text-center bg-white dark:bg-gray-800 rounded p-2 shadow-sm hover:shadow transition-shadow">
+      <div class="cast-card w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-600 mb-1 overflow-hidden rounded-lg mx-auto">
+        <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/100x100'">
       </div>
-    `;
+      <div class="mb-1">
+        <span class="text-xs px-1 py-0.5 rounded-full ${role === 'Main' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">${role}</span>
+      </div>
+      <h3 class="font-medium text-xs mb-0.5">${this.truncateName(character.character.name, 12)}</h3>
+      ${seiyuu ? `<p class="text-xs text-gray-600 dark:text-gray-400">${this.truncateName(seiyuu.person.name, 10)}</p>` : ''}
+    </div>
+  `;
   }
 
   /**
@@ -973,10 +970,10 @@ removeEpisodeSkeletons() {
    * Renders the episodes section
    * @returns {string} HTML string for the episodes section
    */
-renderEpisodes() {
-  // Pastikan episodeData adalah array sebelum memeriksa length
-  if (!this.episodeData || this.episodeData.length === 0) {
-    return `
+  renderEpisodes() {
+    // Pastikan episodeData adalah array sebelum memeriksa length
+    if (!this.episodeData || this.episodeData.length === 0) {
+      return `
       <div class="glass rounded-xl p-6">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-bold text-primary-700 dark:text-primary-400">Episodes</h2>
@@ -987,9 +984,9 @@ renderEpisodes() {
         </div>
       </div>
     `;
-  }
+    }
 
-  return `
+    return `
     <div class="glass rounded-xl p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold text-primary-700 dark:text-primary-400">Episodes</h2>
@@ -1018,27 +1015,27 @@ renderEpisodes() {
       ` : ''}
     </div>
   `;
-}
+  }
 
   /**
    * Renders a single episode item
    * @param {Object} episode - Episode data object
    * @returns {string} HTML string for an episode item
    */
-renderEpisodeItem(episode) {
-  const episodeNumber = this.extractEpisodeNumber(episode.categories);
-  const quality = this.extractQuality(episode.categories);
-  const resolution = this.extractResolution(episode.categories);
-  const date = episode.published?.relative || episode.published?.default || '';
+  renderEpisodeItem(episode) {
+    const episodeNumber = this.extractEpisodeNumber(episode.categories);
+    const quality = this.extractQuality(episode.categories);
+    const resolution = this.extractResolution(episode.categories);
+    const date = episode.published?.relative || episode.published?.default || '';
 
-  // Extract thumbnail image
-  let imageUrl = 'https://via.placeholder.com/80x45';
-  const imgMatch = episode.content.match(/src="([^"]+)"/);
-  if (imgMatch && imgMatch[1]) {
-    imageUrl = imgMatch[1];
-  }
+    // Extract thumbnail image
+    let imageUrl = 'https://via.placeholder.com/80x45';
+    const imgMatch = episode.content.match(/src="([^"]+)"/);
+    if (imgMatch && imgMatch[1]) {
+      imageUrl = imgMatch[1];
+    }
 
-  return `
+    return `
     <div class="episode-item flex items-center p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
       <div class="w-16 h-16 flex-shrink-0 mr-3 hidden sm:block">
         <img src="${imageUrl}" alt="${episode.title}" class="w-full h-full object-cover rounded" onerror="this.src='https://via.placeholder.com/80x45'">
@@ -1063,37 +1060,38 @@ renderEpisodeItem(episode) {
       </div>
     </div>
   `;
-}
+  }
 
-/**
+  /**
    * Renders the characters section
    * @returns {string} HTML string for the characters section
    */
   renderCharacters() {
     if (!this.characterData || this.characterData.length === 0) return '';
 
-    const mainCharacters = this.characterData.slice(0, 6);
+    const mainCharacters = this.characterData.slice(0, 12); // Tampilkan lebih banyak karakter
 
     if (mainCharacters.length === 0) return '';
 
     return `
-      <div class="glass rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Characters &amp; Cast</h2>
+    <div class="glass rounded-xl p-4">
+      <h2 class="text-xl font-bold mb-3 text-primary-700 dark:text-primary-400">Characters & Cast</h2>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          ${mainCharacters.map(character => this.renderCharacterItem(character)).join('')}
-        </div>
-
-        ${this.characterData.length > 6 ? `
-        <div class="mt-4 text-center">
-          <button class="view-all-characters-btn px-4 py-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-            View All Characters
-          </button>
-        </div>
-        ` : ''}
+      <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+        ${mainCharacters.map(character => this.renderCharacterItem(character)).join('')}
       </div>
-    `;
+
+      ${this.characterData.length > 12 ? `
+      <div class="mt-3 text-center">
+        <button class="view-all-characters-btn px-3 py-1.5 text-sm bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
+          View All
+        </button>
+      </div>
+      ` : ''}
+    </div>
+  `;
   }
+
 
   /**
    * Renders a single character item
@@ -1103,20 +1101,24 @@ renderEpisodeItem(episode) {
   renderCharacterItem(character) {
     const imageUrl = character.character.images?.jpg?.image_url;
     const isQuestionmarkGif = imageUrl && /questionmark_\d+\.gif/.test(imageUrl);
-    const charImage = isQuestionmarkGif ? 'https://placehold.co/225x350' : imageUrl || 'https://placehold.co/225x350';
+    const charImage = isQuestionmarkGif ? 'https://placehold.co/80x80' : imageUrl || 'https://placehold.co/80x80';
     const seiyuu = character.voice_actors?.find(va => va.language === 'Japanese');
 
     return `
-      <div class="text-center">
-        <div class="cast-card w-full h-48 bg-gradient-to-br from-gray-400 to-gray-600 mb-2 overflow-hidden rounded-lg">
-          <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/225x350'">
-        </div>
-        <h3 class="font-medium">${character.character.name}</h3>
-        ${seiyuu ? `<p class="text-sm text-gray-600 dark:text-gray-400">${seiyuu.person.name}</p>` : ''}
+    <div class="text-center">
+      <div class="cast-card w-full h-20 bg-gradient-to-br from-gray-400 to-gray-600 mb-1 overflow-hidden rounded-lg mx-auto">
+        <img src="${charImage}" alt="${character.character.name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/80x80'">
       </div>
-    `;
+      <h3 class="font-medium text-xs leading-tight mb-0.5">${this.truncateName(character.character.name, 15)}</h3>
+      ${seiyuu ? `<p class="text-xs text-gray-600 dark:text-gray-400 leading-tight">${this.truncateName(seiyuu.person.name, 12)}</p>` : ''}
+    </div>
+  `;
   }
-
+  // Tambahkan method helper untuk memotong nama yang panjang
+  truncateName(name, maxLength) {
+    if (name.length <= maxLength) return name;
+    return name.substring(0, maxLength) + '...';
+  }
   // Helper methods
 
   /**
@@ -1197,62 +1199,206 @@ renderEpisodeItem(episode) {
   formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
-  
+
 
   /**
  * Memuat lebih banyak episode
  */
 
-async loadMoreEpisodes() {
-  if (this.isLoadingEpisodes || !this.hasMoreEpisodes) return;
-  
-  await this.fetchEpisodeData(true);
-  
-  // Perbarui UI setelah load more
-  this.updateEpisodesUI();
-}
+  async loadMoreEpisodes() {
+    if (this.isLoadingEpisodes || !this.hasMoreEpisodes) return;
 
-/**
- * Memperbarui UI daftar episode setelah load more
- */
-updateEpisodesUI() {
-  const episodesContainer = this.container.querySelector('.episodes-list');
-  const loadMoreContainer = this.container.querySelector('.load-more-container');
-  
-  if (episodesContainer && this.episodeData) {
-    // Render ulang semua episode
-    episodesContainer.innerHTML = this.episodeData.map(episode => this.renderEpisodeItem(episode)).join('');
+    await this.fetchEpisodeData(true);
+
+    // Perbarui UI setelah load more
+    this.updateEpisodesUI();
   }
-  
-  // Perbarui state tombol load more
-  this.updateEpisodeLoadingState(false);
-}
+
+  /**
+   * Memperbarui UI daftar episode setelah load more
+   */
+  updateEpisodesUI() {
+    const episodesContainer = this.container.querySelector('.episodes-list');
+    const loadMoreContainer = this.container.querySelector('.load-more-container');
+
+    if (episodesContainer && this.episodeData) {
+      // Render ulang semua episode
+      episodesContainer.innerHTML = this.episodeData.map(episode => this.renderEpisodeItem(episode)).join('');
+    }
+
+    // Perbarui state tombol load more
+    this.updateEpisodeLoadingState(false);
+  }
 
 
   setupInfiniteScroll() {
-  // Anda bisa menambahkan infinite scroll jika diinginkan
-  const options = {
-    root: null,
-    rootMargin: '0px',
-    threshold: 0.1
-  };
-  
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting && this.hasMoreEpisodes && !this.isLoadingEpisodes) {
-        this.loadMoreEpisodes();
-      }
+    // Anda bisa menambahkan infinite scroll jika diinginkan
+    const options = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && this.hasMoreEpisodes && !this.isLoadingEpisodes) {
+          this.loadMoreEpisodes();
+        }
+      });
+    }, options);
+
+    // Amati elemen sentinel (tambahkan di akhir daftar episode)
+    const sentinel = document.createElement('div');
+    sentinel.className = 'sentinel';
+    this.container.appendChild(sentinel);
+    observer.observe(sentinel);
+  }
+
+  /**
+ * Fetches statistics data from Jikan API
+ * @async
+ */
+  async fetchStatisticsData() {
+    // Pastikan MAL ID tersedia sebelum fetch
+    if (!this.malID) {
+      console.error('MAL ID is not available for statistics fetch');
+      this.statisticsData = null;
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://api.jikan.moe/v4/anime/${this.malID}/statistics`);
+      if (!response.ok) throw new Error('Statistics API response was not ok');
+
+      const data = await response.json();
+      this.statisticsData = data.data || null;
+
+      console.log('Statistics data loaded:', this.statisticsData);
+    } catch (error) {
+      console.error('Error fetching statistics data:', error);
+      this.statisticsData = null;
+    }
+  }
+
+  /**
+   * Renders the statistics section
+   * @returns {string} HTML string for the statistics section
+   */
+  renderStatistics() {
+    if (!this.statisticsData) return '';
+
+    const { watching, completed, on_hold, dropped, plan_to_watch, total, scores } = this.statisticsData;
+    const statusData = [
+      { label: 'Watching', value: watching, color: 'bg-blue-500' },
+      { label: 'Completed', value: completed, color: 'bg-green-500' },
+      { label: 'On Hold', value: on_hold, color: 'bg-yellow-500' },
+      { label: 'Dropped', value: dropped, color: 'bg-red-500' },
+      { label: 'Plan to Watch', value: plan_to_watch, color: 'bg-purple-500' }
+    ];
+
+    // Hitung persentase untuk setiap status
+    statusData.forEach(item => {
+      item.percentage = ((item.value / total) * 100).toFixed(1);
     });
-  }, options);
-  
-  // Amati elemen sentinel (tambahkan di akhir daftar episode)
-  const sentinel = document.createElement('div');
-  sentinel.className = 'sentinel';
-  this.container.appendChild(sentinel);
-  observer.observe(sentinel);
+
+    return `
+    <div class="glass rounded-xl p-6 mt-6">
+      <h2 class="text-xl font-bold mb-4 text-primary-700 dark:text-primary-400">Statistics</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Status Distribution -->
+        <div>
+          <h3 class="text-lg font-semibold mb-3 text-primary-600 dark:text-primary-400">Status Distribution</h3>
+          <div class="space-y-3">
+            ${statusData.map(item => `
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">${item.label}</span>
+                <span class="text-sm">${this.formatNumber(item.value)} (${item.percentage}%)</span>
+              </div>
+              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                <div class="${item.color} h-2.5 rounded-full" style="width: ${item.percentage}%"></div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+            Total: ${this.formatNumber(total)} Users
+          </div>
+        </div>
+        
+        <!-- Score Distribution -->
+        <div>
+          <h3 class="text-lg font-semibold mb-3 text-primary-600 dark:text-primary-400">Score Distribution</h3>
+          <div class="space-y-2">
+            ${scores.slice().reverse().map(score => {
+      const percentage = ((score.votes / total) * 100).toFixed(1);
+      const width = Math.max(5, percentage); // Minimum width 5% untuk visibility
+
+      return `
+                <div class="flex items-center">
+                  <span class="w-6 text-sm font-medium">${score.score}</span>
+                  <div class="flex-1 ml-2">
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                      <div class="bg-gradient-to-r from-primary-500 to-accent-500 h-3 rounded-full" style="width: ${width}%"></div>
+                    </div>
+                  </div>
+                  <span class="w-16 text-right text-xs ml-2">${this.formatNumber(score.votes)} (${percentage}%)</span>
+                </div>
+              `;
+    }).join('')}
+          </div>
+          <div class="mt-4 flex justify-between items-center text-sm">
+            <span class="text-gray-600 dark:text-gray-400">Weighted Score: ${this.animeData.score || 'N/A'}</span>
+            <span class="text-gray-600 dark:text-gray-400">Based on ${this.formatNumber(scores.reduce((sum, score) => sum + score.votes, 0))} votes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  }
+
+  /**
+   * Renders statistics skeleton
+   * @returns {string} HTML string for statistics skeleton
+   */
+  renderStatisticsSkeleton() {
+    return `
+    <div class="glass rounded-xl p-6 mt-6">
+      <div class="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-4"></div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Status Distribution Skeleton -->
+        <div>
+          <div class="h-5 w-48 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-3"></div>
+          ${Array(5).fill().map(() => `
+            <div class="mb-4">
+              <div class="flex justify-between mb-1">
+                <div class="h-4 w-20 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div class="h-4 w-16 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+              <div class="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2.5 animate-pulse"></div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <!-- Score Distribution Skeleton -->
+        <div>
+          <div class="h-5 w-48 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-3"></div>
+          ${Array(10).fill().map(() => `
+            <div class="flex items-center mb-2">
+              <div class="h-4 w-4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div class="ml-2 flex-1">
+                <div class="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-3 animate-pulse"></div>
+              </div>
+              <div class="h-4 w-12 bg-gray-300 dark:bg-gray-700 rounded animate-pulse ml-2"></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+  }
 }
 
-}
 
 if (document.getElementById('animeinfo-container')) {
   new AnimeInfo();

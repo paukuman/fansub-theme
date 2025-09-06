@@ -53,10 +53,20 @@ class ProjectStatusManager {
       [ProjectStatusManager.STATUS_TYPES.HIATUS]: 0
     };
     
-    this.modalOffsets = {
-      [ProjectStatusManager.STATUS_TYPES.ONGOING]: 0,
-      [ProjectStatusManager.STATUS_TYPES.COMPLETED]: 0,
-      [ProjectStatusManager.STATUS_TYPES.HIATUS]: 0
+    // Menyimpan status data untuk setiap modal
+    this.modalData = {
+      [ProjectStatusManager.STATUS_TYPES.ONGOING]: {
+        offset: 0,
+        hasMore: true
+      },
+      [ProjectStatusManager.STATUS_TYPES.COMPLETED]: {
+        offset: 0,
+        hasMore: true
+      },
+      [ProjectStatusManager.STATUS_TYPES.HIATUS]: {
+        offset: 0,
+        hasMore: true
+      }
     };
     
     this.isLoading = false;
@@ -209,6 +219,10 @@ class ProjectStatusManager {
   async openModal(status) {
     this.currentModal = status;
     
+    // Reset offset dan status hasMore ketika modal dibuka
+    this.modalData[status].offset = 0;
+    this.modalData[status].hasMore = true;
+    
     // Show modal
     const modal = document.getElementById(`${status}Modal`);
     if (modal) {
@@ -240,7 +254,7 @@ class ProjectStatusManager {
    * @private
    */
   async loadModalData(status, clearExisting = false) {
-    if (this.isLoading) return;
+    if (this.isLoading || !this.modalData[status].hasMore) return;
     
     this.isLoading = true;
     
@@ -256,7 +270,8 @@ class ProjectStatusManager {
     }
     
     try {
-      const apiUrl = `${ProjectStatusManager.API_CONFIG.BASE_URL}?blogID=${this.blogID}&page=animeinfo&status=${status}&limit=${ProjectStatusManager.API_CONFIG.MODAL_LIMIT}&offset=${this.modalOffsets[status]}`;
+      // Offset dimulai dari 1, bukan 0
+      const apiUrl = `${ProjectStatusManager.API_CONFIG.BASE_URL}?blogID=${this.blogID}&page=animeinfo&status=${status}&limit=${ProjectStatusManager.API_CONFIG.MODAL_LIMIT}&offset=${this.modalData[status].offset + 1}`;
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
@@ -271,9 +286,14 @@ class ProjectStatusManager {
       
       this.renderModalContent(status, data.response.entries, clearExisting);
       
-      // Update offset for next load
+      // Update offset untuk next load
       if (data.response.entries.length > 0) {
-        this.modalOffsets[status] += data.response.entries.length;
+        this.modalData[status].offset += data.response.entries.length;
+      }
+      
+      // Cek apakah masih ada data yang bisa diload
+      if (data.response.entries.length < ProjectStatusManager.API_CONFIG.MODAL_LIMIT) {
+        this.modalData[status].hasMore = false;
       }
       
       // Check if we need to add load more button
@@ -298,7 +318,6 @@ class ProjectStatusManager {
     
     if (clearExisting) {
       modalContent.innerHTML = '';
-      this.modalOffsets[status] = 0;
     }
     
     // Remove existing load more button
@@ -395,8 +414,8 @@ class ProjectStatusManager {
       existingLoadMore.remove();
     }
     
-    // Add load more button if we got a full page of results
-    if (entriesCount >= ProjectStatusManager.API_CONFIG.MODAL_LIMIT) {
+    // Add load more button jika masih ada data yang bisa diload
+    if (this.modalData[status].hasMore) {
       const loadMoreContainer = document.createElement('div');
       loadMoreContainer.className = 'load-more-container pt-4';
       
