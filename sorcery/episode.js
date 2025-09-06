@@ -113,6 +113,18 @@ class AnimeAPIService {
     const url = `${this.jikanUrl}/${malId}/pictures`;
     return this.fetchWithCache(url, `pictures-${malId}`);
   }
+
+  // New method to get related anime from Jikan API
+  async getRelatedAnime(malId) {
+    const url = `${this.jikanUrl}/${malId}/recommendations`;
+    return this.fetchWithCache(url, `related-${malId}`);
+  }
+
+  // New method to get recommended anime from your API
+  async getRecommendedAnime(blogID, genre) {
+    const url = `${this.baseUrl}?blogID=${blogID}&genre=${genre}&page=animeinfo&limit=5`;
+    return this.fetchWithCache(url, `recommended-${blogID}-${genre}`);
+  }
 }
 
 // Data Models
@@ -305,12 +317,12 @@ class AnimeHeader {
     `;
   }
 }
+
 class ServerSection {
   constructor(streamList, currentServer) {
     this.streamList = streamList;
     this.currentServer = currentServer;
   }
-
 
   render() {
     return `
@@ -572,6 +584,7 @@ class VideoPlayer {
         document.getElementById('downloadSection').classList.add('hidden');
         document.getElementById('episodesSection').classList.add('hidden');
         document.getElementById('infoSection').classList.add('hidden');
+        document.getElementById('relatedSection').classList.add('hidden');
       });
     }
 
@@ -588,6 +601,7 @@ class VideoPlayer {
         document.getElementById('serverSection').classList.add('hidden');
         document.getElementById('episodesSection').classList.add('hidden');
         document.getElementById('infoSection').classList.add('hidden');
+        document.getElementById('relatedSection').classList.add('hidden');
       });
     }
 
@@ -602,6 +616,7 @@ class VideoPlayer {
         document.getElementById('serverSection').classList.add('hidden');
         document.getElementById('downloadSection').classList.add('hidden');
         document.getElementById('infoSection').classList.add('hidden');
+        document.getElementById('relatedSection').classList.add('hidden');
       });
     }
 
@@ -616,6 +631,7 @@ class VideoPlayer {
         document.getElementById('serverSection').classList.add('hidden');
         document.getElementById('downloadSection').classList.add('hidden');
         document.getElementById('episodesSection').classList.add('hidden');
+        document.getElementById('relatedSection').classList.add('hidden');
       });
     }
   }
@@ -947,6 +963,59 @@ class AnimeInfoSection {
   }
 }
 
+// New UI Component for Related and Recommended Anime
+class RelatedAnimeSection {
+  constructor(relatedAnime, recommendedAnime) {
+    this.relatedAnime = relatedAnime;
+    this.recommendedAnime = recommendedAnime;
+  }
+
+  render() {
+    return `
+      <div id="relatedSection" class="glass rounded-xl p-4 mb-4">
+        <h3 class="flex items-center font-bold mb-3 text-sm">
+          <i class="fas fa-film mr-2 text-primary-600 dark:text-primary-400"></i> 
+          Anime Terkait & Rekomendasi
+        </h3>
+        
+        ${this.relatedAnime.length > 0 ? `
+          <div class="mb-4">
+            <h4 class="font-semibold mb-2 text-sm">Related Anime</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              ${this.relatedAnime.slice(0, 5).map(anime => `
+                <a href="${anime.url}" target="_blank" class="block group">
+                  <div class="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
+                    <img src="${anime.image}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                  </div>
+                  <div class="text-xs font-medium line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${anime.title}</div>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${this.recommendedAnime.length > 0 ? `
+          <div>
+            <h4 class="font-semibold mb-2 text-sm">Recommended Anime</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              ${this.recommendedAnime.slice(0, 5).map(anime => `
+                <a href="${anime.path}" class="block group">
+                  <div class="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
+                    <img src="${anime.image}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                  </div>
+                  <div class="text-xs font-medium line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${anime.title}</div>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+}
+
 // Main Application
 class AnimePlayerApp {
   constructor() {
@@ -957,6 +1026,8 @@ class AnimePlayerApp {
     this.currentEpisode = null;
     this.animeSeries = null;
     this.episodesList = [];
+    this.relatedAnime = [];
+    this.recommendedAnime = [];
     this.observer = null;
     this.maxRetries = 5;
     this.retryCount = 0;
@@ -993,11 +1064,12 @@ class AnimePlayerApp {
       }
 
       // Now fetch the episodes list and other data in parallel using the malId
-      const [episodesListData, animeInfoData, jikanData, picturesData] = await Promise.all([
+      const [episodesListData, animeInfoData, jikanData, picturesData, relatedData] = await Promise.all([
         this.apiService.getEpisodesList(this.blogID, malId),
         this.apiService.getAnimeInfo(this.blogID, malId),
         this.apiService.getJikanAnimeDetails(malId),
-        this.apiService.getAnimePictures(malId)
+        this.apiService.getAnimePictures(malId),
+        this.apiService.getRelatedAnime(malId)
       ]);
 
       // Process episodes list - urutkan berdasarkan episodeNumberParsed
@@ -1014,12 +1086,56 @@ class AnimePlayerApp {
 
       this.animeInfoData = animeInfoData;
 
+      // Process related anime
+      this.relatedAnime = this.processRelatedAnime(relatedData);
+
+      // Get recommended anime based on a random genre
+      if (this.animeSeries.genres.length > 0) {
+        const randomGenre = this.animeSeries.genres[Math.floor(Math.random() * this.animeSeries.genres.length)];
+        try {
+          const recommendedData = await this.apiService.getRecommendedAnime(this.blogID, randomGenre);
+          this.recommendedAnime = this.processRecommendedAnime(recommendedData);
+        } catch (error) {
+          console.error('Error fetching recommended anime:', error);
+          this.recommendedAnime = [];
+        }
+      }
+
       // Render the app
       this.render();
     } catch (error) {
       console.error('Initialization error:', error);
       this.showError(error);
     }
+  }
+
+  processRelatedAnime(relatedData) {
+    if (!relatedData?.data) return [];
+    
+    return relatedData.data.slice(0, 5).map(item => ({
+      title: item.entry.title,
+      url: item.entry.url,
+      image: item.entry.images?.jpg?.image_url || '/placeholder-image.jpg'
+    }));
+  }
+
+  processRecommendedAnime(recommendedData) {
+    if (!recommendedData?.response?.entries) return [];
+    
+    return recommendedData.response.entries.slice(0, 5).map(entry => ({
+      title: entry.title,
+      path: entry.path,
+      image: this.extractImageFromContent(entry.content)
+    }));
+  }
+
+  extractImageFromContent(content) {
+    if (!content) return '/placeholder-image.jpg';
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'text/html');
+    const img = doc.querySelector('img');
+    return img ? img.src : '/placeholder-image.jpg';
   }
 
   setupObserver() {
@@ -1092,6 +1208,7 @@ class AnimePlayerApp {
     ${new DownloadSection(this.currentEpisode.downloadList).render()}
     ${new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).render()}
     ${new AnimeInfoSection(this.animeSeries, this.animeInfoData).render()}
+    ${new RelatedAnimeSection(this.relatedAnime, this.recommendedAnime).render()}
   `;
 
     // Initialize video player
@@ -1223,6 +1340,14 @@ const customCSS = `
   .dark .glass {
     background: rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Line clamp utility */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 `;
 
