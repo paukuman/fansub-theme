@@ -1,3 +1,586 @@
+// Add CSS for the slider and dropdowns
+const customCSS = `
+
+/* Backdrop image styling */
+.backdrop-image {
+  min-height: 400px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.5s ease;
+}
+
+/* Fallback gradient jika tidak ada gambar */
+.backdrop-image.no-image {
+  background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
+}
+
+/* Overlay untuk keterbacaan teks yang lebih baik */
+.backdrop-image::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, 
+    rgba(0, 0, 0, 0.3) 0%, 
+    rgba(0, 0, 0, 0.5) 50%,
+    rgba(0, 0, 0, 0.7) 100%);
+  z-index: 1;
+}
+
+.backdrop-image > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Animasi untuk backdrop image */
+.backdrop-image {
+  animation: fadeInScale 1.2s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .backdrop-image {
+    min-height: 300px;
+    padding: 2rem 1rem;
+  }
+  
+  .backdrop-image h1 {
+    font-size: 2rem;
+  }
+  
+  .backdrop-image p {
+    font-size: 1.1rem;
+  }
+}
+
+/* Hover effects */
+.backdrop-image:hover {
+  transform: scale(1.02);
+}
+
+.backdrop-image:hover::before {
+  background: linear-gradient(to bottom, 
+    rgba(0, 0, 0, 0.4) 0%, 
+    rgba(0, 0, 0, 0.6) 50%,
+    rgba(0, 0, 0, 0.8) 100%);
+}
+
+/* Text styling improvements */
+.backdrop-image h1 {
+  background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.backdrop-image p {
+  font-weight: 300;
+  letter-spacing: 0.025em;
+}
+
+/* Divider styling */
+.backdrop-image .bg-primary-500 {
+  background: linear-gradient(90deg, #ec4899, #8b5cf6);
+  height: 3px;
+  width: 80px;
+  border-radius: 2px;
+}
+
+/* Backdrop cover styling */
+.backdrop-cover {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.backdrop-image {
+  height: 400px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Gradient overlay for better text readability */
+.backdrop-image::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, 
+    rgba(0, 0, 0, 0.2) 0%, 
+    rgba(0, 0, 0, 0.4) 40%,
+    rgba(0, 0, 0, 0.8) 100%);
+  z-index: 1;
+}
+
+.backdrop-image > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .backdrop-image {
+    height: 300px;
+  }
+  
+  .backdrop-image h1 {
+    font-size: 2rem;
+  }
+}
+
+/* Animation for backdrop */
+.backdrop-cover {
+  animation: fadeIn 1s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Container adjustment for overlap */
+.container {
+  position: relative;
+}
+
+.-mt-20 {
+  margin-top: -5rem;
+}
+
+/* Glass effect for content */
+.glass {
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.125);
+  border-radius: 12px;
+}
+
+.dark .glass {
+  background-color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Shadow for better depth */
+.glass {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+}
+
+.dark .glass {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+/* Improved styling for header and breadcrumbs */
+.breadcrumbs {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .breadcrumbs {
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.breadcrumbs ol {
+  flex-wrap: wrap;
+}
+
+.breadcrumbs li {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumbs a {
+  transition: all 0.2s ease;
+}
+
+.breadcrumbs a:hover {
+  transform: translateY(-1px);
+}
+
+/* Glass effect improvements */
+.glass {
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+.dark .glass {
+  background-color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Header title styling */
+h1 {
+  background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.dark h1 {
+  background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+/* Episode badge styling */
+.bg-primary-100 {
+  background: rgba(79, 70, 229, 0.1);
+}
+
+.dark .bg-primary-800 {
+  background: rgba(79, 70, 229, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .breadcrumbs {
+    font-size: 0.75rem;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  h2 {
+    font-size: 1rem;
+  }
+}
+
+/* Line clamp utility */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Smooth transitions */
+.glass, .breadcrumbs a, h1, h2 {
+  transition: all 0.3s ease;
+}
+  /* Hover effects for breadcrumbs */
+.breadcrumbs a {
+  position: relative;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.3s ease;
+}
+
+.breadcrumbs a:hover {
+  background: rgba(79, 70, 229, 0.1);
+  transform: translateY(-2px);
+}
+
+.dark .breadcrumbs a:hover {
+  background: rgba(79, 70, 229, 0.2);
+}
+
+.breadcrumbs a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #4f46e5, #ec4899);
+  transition: width 0.3s ease;
+}
+
+.breadcrumbs a:hover::after {f
+  width: 100%;
+}
+/* Styling for categories section */
+#categoriesSection {
+  margin-top: 1rem;
+}
+
+#categoriesSection .inline-block {
+  transition: all 0.2s ease;
+  margin-bottom: 0.25rem;
+}
+
+#categoriesSection .inline-block:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark #categoriesSection .inline-block:hover {
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
+#categoriesSection h4 {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Styling for categories section */
+#categoriesSection .inline-block {
+  transition: all 0.2s ease;
+}
+
+#categoriesSection .inline-block:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark #categoriesSection .inline-block:hover {
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+  
+/* Improved list styling for related anime */
+/* Ensure related section is always visible */
+#relatedSection {
+  display: block !important;
+}
+
+/* Override any hidden class that might be applied to related section */
+#relatedSection.hidden {
+  display: block !important;
+}
+
+#relatedSection .flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+#relatedSection .flex-1 {
+  flex: 1 1 0%;
+}
+
+#relatedSection .min-w-0 {
+  min-width: 0;
+}
+
+#relatedSection .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hover effects for list items */
+#relatedSection a {
+  transition: all 0.2s ease;
+}
+
+/* Better spacing for the two-column layout */
+@media (min-width: 1024px) {
+  #relatedSection {
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+  
+  #relatedSection::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  #relatedSection::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  #relatedSection::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+  }
+  
+  .dark #relatedSection::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 1023px) {
+  #relatedSection {
+    margin-top: 1rem;
+  }
+}
+
+/* Style untuk episode number dengan format berbeda */
+  .episode-number {
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+  }
+    /* End style episode number */
+
+  .anime-cover-slider {
+    position: relative;
+  }
+  
+  .anime-cover-slider .slide {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  
+  .anime-cover-slider .slide.active {
+    display: block;
+    opacity: 1;
+  }
+  
+  .slider-nav {
+    display: none;
+  }
+  
+  .anime-cover-slider:hover .slider-nav {
+    display: block;
+  }
+  
+  .slider-dots {
+    display: flex;
+  }
+  
+  .dropdown-content {
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.95);
+  }
+  
+  .dark .dropdown-content {
+    background: rgba(30, 41, 59, 0.95);
+  }
+  
+  .server-option, .quality-option {
+    cursor: pointer;
+  }
+  
+  .server-option:hover, .quality-option:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  .rotate-180 {
+    transform: rotate(180deg);
+    transition: transform 0.2s ease;
+  }
+  
+  /* Fix for dropdown positioning */
+  .relative {
+    position: relative;
+  }
+  
+  .dropdown-content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+  }
+  
+  /* Glass effect for dropdown */
+  .glass {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Line clamp utility */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Layout improvements for desktop/tablet */
+@media (min-width: 1024px) {
+  #episode-container {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  
+  #relatedSection {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+/* Ensure proper spacing on mobile */
+@media (max-width: 1023px) {
+  #episode-container {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Additional styling for the new layout */
+.main-content {
+  width: 100%;
+}
+
+.sidebar {
+  width: 100%;
+}
+
+/* Ensure proper spacing between sections */
+.glass {
+  margin-bottom: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1023px) {
+  .main-content, .sidebar {
+    width: 100%;
+  }
+}
+
+/* Improve image sizing in related section */
+#relatedSection img {
+  width: 100%;
+  height: auto;
+}
+
+/* Better spacing for the two-column layout */
+@media (min-width: 1024px) {
+  .main-content {
+    padding-right: 0.5rem;
+  }
+  
+  .sidebar {
+    padding-left: 0.5rem;
+  }
+}
+`;
+
 // Utility function to parse episode numbers from various formats
 class EpisodeNumberParser {
   static parseEpisodeNumber(episodeStr) {
@@ -120,10 +703,283 @@ class AnimeAPIService {
     return this.fetchWithCache(url, `related-${malId}`);
   }
 
-  // New method to get recommended anime from your API
+  // Dalam class AnimeAPIService
   async getRecommendedAnime(blogID, genre) {
     const url = `${this.baseUrl}?blogID=${blogID}&genre=${genre}&page=animeinfo&limit=5`;
     return this.fetchWithCache(url, `recommended-${blogID}-${genre}`);
+  }
+}
+class FeedCategoriesParser {
+  static parseFeedCategories(feedCategories) {
+    if (!feedCategories || !Array.isArray(feedCategories)) {
+      return {
+        genres: [],
+        types: [],
+        qualities: [],
+        resolutions: [],
+        statuses: [],
+        seasons: [],
+        rates: [],
+        malIds: [],
+        episodes: []
+      };
+    }
+
+    const result = {
+      genres: [],
+      types: [],
+      qualities: [],
+      resolutions: [],
+      statuses: [],
+      seasons: [],
+      rates: [],
+      malIds: [],
+      episodes: []
+    };
+
+    feedCategories.forEach(category => {
+      if (typeof category !== 'string') return;
+
+      if (!category.includes(':')) {
+        // Ini adalah genre
+        if (category && category.trim() !== '') {
+          result.genres.push(category);
+        }
+      } else {
+        const [key, value] = category.split(':');
+        if (!value || value.trim() === '') return;
+
+        switch (key) {
+          case 'type':
+            result.types.push(value);
+            break;
+          case 'quality':
+            result.qualities.push(value);
+            break;
+          case 'resolution':
+            // Handle multiple resolutions separated by |
+            const resolutions = value.split('|').filter(r => r.trim() !== '');
+            result.resolutions.push(...resolutions);
+            break;
+          case 'status':
+            result.statuses.push(value);
+            break;
+          case 'season':
+            result.seasons.push(value);
+            break;
+          case 'rate':
+            result.rates.push(value);
+            break;
+          case 'mal_id':
+            result.malIds.push(value);
+            break;
+          case 'episode':
+            result.episodes.push(value);
+            break;
+          case 'page':
+            // Skip page categories
+            break;
+          default:
+            // Untuk kategori lain yang tidak dikenali, treat as genre
+            if (value && value.trim() !== '') {
+              result.genres.push(value);
+            }
+        }
+      }
+    });
+
+    // Hapus duplikat dan urutkan
+    Object.keys(result).forEach(key => {
+      if (Array.isArray(result[key])) {
+        result[key] = [...new Set(result[key])];
+
+        // Untuk numbers, urutkan secara numerik
+        if (key === 'rates' || key === 'episodes') {
+          result[key] = result[key]
+            .map(item => parseFloat(item))
+            .filter(item => !isNaN(item))
+            .sort((a, b) => a - b)
+            .map(item => item.toString());
+        } else {
+          result[key] = result[key].sort();
+        }
+      }
+    });
+
+    return result;
+  }
+}
+class Breadcrumbs {
+  constructor(animeSeries, currentEpisode, animeInfoData) {
+    this.animeSeries = animeSeries;
+    this.currentEpisode = currentEpisode;
+    this.animeInfoData = animeInfoData;
+  }
+
+  getAnimeInfoPath() {
+    // Cari path anime info dari response data
+    if (this.animeInfoData?.response?.entries?.[0]?.path) {
+      return this.animeInfoData.response.entries[0].path;
+    }
+    return null;
+  }
+
+  render() {
+    const animeInfoPath = this.getAnimeInfoPath();
+    const baseUrl = window.location.origin;
+
+    return `
+      <nav class="breadcrumbs mb-3" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
+          <li>
+            <a href="${baseUrl}" class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+              <i class="fas fa-home mr-1"></i> Home
+            </a>
+          </li>
+          <li class="flex items-center">
+            <i class="fas fa-chevron-right mx-2 text-xs"></i>
+            ${animeInfoPath ? `
+              <a href="${baseUrl}${animeInfoPath}" class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors line-clamp-1">
+                ${this.animeSeries.title}
+              </a>
+            ` : `
+              <span class="line-clamp-1">${this.animeSeries.title}</span>
+            `}
+          </li>
+          <li class="flex items-center">
+            <i class="fas fa-chevron-right mx-2 text-xs"></i>
+            <span class="text-primary-600 dark:text-primary-400 font-medium">
+              Episode ${this.currentEpisode.episodeNumber}
+            </span>
+          </li>
+        </ol>
+      </nav>
+    `;
+  }
+}
+class CategoriesSection {
+  constructor(feedCategories) {
+    this.categories = FeedCategoriesParser.parseFeedCategories(feedCategories);
+  }
+
+  render() {
+    return `
+      <div id="categoriesSection" class="glass rounded-xl p-4 mb-4">
+        <h3 class="flex items-center font-bold mb-3 text-sm">
+          <i class="fas fa-tags mr-2 text-primary-600 dark:text-primary-400"></i> 
+          Kategori & Filter
+        </h3>
+        
+        ${this.categories.genres.length > 0 ? `
+          <div class="mb-4">
+            <h4 class="font-semibold mb-2 text-xs text-gray-600 dark:text-gray-400">GENRES</h4>
+            <div class="flex flex-wrap gap-1">
+              ${this.categories.genres.map(genre => `
+                <span class="inline-block px-2 py-1 text-xs rounded-full bg-primary-100 dark:bg-primary-800 text-primary-800 dark:text-primary-200">
+                  ${genre}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${this.categories.types.length > 0 ? `
+          <div class="mb-4">
+            <h4 class="font-semibold mb-2 text-xs text-gray-600 dark:text-gray-400">TYPES</h4>
+            <div class="flex flex-wrap gap-1">
+              ${this.categories.types.map(type => `
+                <span class="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200">
+                  ${type}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${this.categories.qualities.length > 0 ? `
+          <div class="mb-4">
+            <h4 class="font-semibold mb-2 text-xs text-gray-600 dark:text-gray-400">QUALITIES</h4>
+            <div class="flex flex-wrap gap-1">
+              ${this.categories.qualities.map(quality => `
+                <span class="inline-block px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200">
+                  ${quality}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${this.categories.resolutions.flat().length > 0 ? `
+          <div class="mb-4">
+            <h4 class="font-semibold mb-2 text-xs text-gray-600 dark:text-gray-400">RESOLUTIONS</h4>
+            <div class="flex flex-wrap gap-1">
+              ${[...new Set(this.categories.resolutions.flat())].map(resolution => `
+                <span class="inline-block px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200">
+                  ${resolution}p
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${this.categories.statuses.length > 0 ? `
+          <div>
+            <h4 class="font-semibold mb-2 text-xs text-gray-600 dark:text-gray-400">STATUSES</h4>
+            <div class="flex flex-wrap gap-1">
+              ${this.categories.statuses.map(status => `
+                <span class="inline-block px-2 py-1 text-xs rounded-full bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200">
+                  ${status}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+}
+
+class BackdropCover {
+  constructor(imageUrl, title) {
+    this.imageUrl = imageUrl;
+    this.title = title;
+  }
+
+  render() {
+    if (this.imageUrl) {
+      return `
+      <div class="backdrop-cover">
+        <div class="backdrop-image bg-cover bg-center bg-no-repeat relative">
+          <!-- Preload small blurry version -->
+          <div class="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-50" style="background-image: url('${this.imageUrl}')"></div>
+          
+          <!-- Main image -->
+          <div class="absolute inset-0 bg-cover bg-center" style="background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.7)), url('${this.imageUrl}')"></div>
+          
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="text-center text-white p-4 backdrop-blur-sm bg-black/30 rounded-xl">
+              <h1 class="text-3xl md:text-4xl font-bold mb-2 drop-shadow-lg">${this.title}</h1>
+              <div class="w-20 h-1 bg-primary-500 mx-auto mb-4 rounded-full"></div>
+              <p class="text-lg md:text-xl opacity-90 drop-shadow-md">Episode Streaming</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    }
+
+    // Fallback jika tidak ada gambar
+    return `
+      <div class="backdrop-cover">
+        <div class="backdrop-image bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white">
+          <div class="text-center">
+            <i class="fas fa-play-circle text-6xl mb-4"></i>
+            <h1 class="text-3xl md:text-4xl font-bold mb-2">${this.title}</h1>
+            <p class="text-lg md:text-xl opacity-90">Episode Streaming</p>
+          </div>
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -141,7 +997,20 @@ class AnimeEpisode {
     this.streamList = this.parseStreamList(data.content);
     this.downloadList = this.parseDownloadList(data.content);
   }
+  // Dalam class AnimePlayerApp
+  extractImageFromContent(content) {
+    if (!content) return null;
 
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(content, 'text/html');
+      const img = doc.querySelector('img');
+      return img ? img.src : null;
+    } catch (error) {
+      console.error('Error extracting image from content:', error);
+      return null;
+    }
+  }
   extractEpisodeNumber(categories) {
     const episodeCat = categories.find(cat => cat.startsWith('episode:'));
     return episodeCat ? episodeCat.split(':')[1] : null;
@@ -301,18 +1170,38 @@ class ErrorMessage {
 }
 
 class AnimeHeader {
-  constructor(animeSeries, currentEpisode) {
+  constructor(animeSeries, currentEpisode, animeInfoData) {
     this.animeSeries = animeSeries;
     this.currentEpisode = currentEpisode;
+    this.animeInfoData = animeInfoData;
   }
 
   render() {
     return `
       <div class="glass rounded-xl p-4 mb-4">
-        <h1 class="text-xl font-bold truncate">${this.animeSeries.title}</h1>
-        <h2 class="text-md text-primary-600 dark:text-primary-400 mt-1 truncate">
-          Episode ${this.currentEpisode.episodeNumber}: ${this.currentEpisode.title}
-        </h2>
+        ${new Breadcrumbs(this.animeSeries, this.currentEpisode, this.animeInfoData).render()}
+        
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">
+              ${this.animeSeries.title}
+            </h1>
+            <h2 class="text-md md:text-lg text-primary-600 dark:text-primary-400 mt-1 font-semibold">
+              Episode ${this.currentEpisode.episodeNumber}: ${this.currentEpisode.title || 'Episode ' + this.currentEpisode.episodeNumber}
+            </h2>
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <span class="px-3 py-1 bg-primary-100 dark:bg-primary-800 text-primary-800 dark:text-primary-200 text-xs rounded-full font-medium">
+              EP ${this.currentEpisode.episodeNumber}
+            </span>
+            ${this.currentEpisode.published?.relative ? `
+              <span class="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs rounded-full">
+                ${this.currentEpisode.published.relative}
+              </span>
+            ` : ''}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -371,7 +1260,6 @@ class ServerSection {
   }
 
   // Di dalam class ServerSection, perbaiki method bindEvents()
-
   bindEvents(videoPlayerInstance) {
     // Server selection
     document.querySelectorAll('.server-btn').forEach(btn => {
@@ -391,6 +1279,12 @@ class ServerSection {
         // Update server section (gunakan method update, bukan render ulang)
         if (window.serverSectionInstance) {
           window.serverSectionInstance.update(server);
+        }
+
+        // Pastikan relatedSection tetap terlihat
+        const relatedSection = document.getElementById('relatedSection');
+        if (relatedSection) {
+          relatedSection.classList.remove('hidden');
         }
       });
     });
@@ -580,15 +1474,13 @@ class VideoPlayer {
     if (serverToggle && serverSection) {
       serverToggle.addEventListener('click', () => {
         serverSection.classList.toggle('hidden');
-        // Hide other sections when showing this one
+        // Hide other main sections when showing this one
         document.getElementById('downloadSection').classList.add('hidden');
         document.getElementById('episodesSection').classList.add('hidden');
         document.getElementById('infoSection').classList.add('hidden');
-        document.getElementById('relatedSection').classList.add('hidden');
+        // JANGAN sembunyikan relatedSection di sini
       });
     }
-
-    // Hapus quality toggle
 
     // Download toggle
     const downloadToggle = document.getElementById('downloadToggle');
@@ -597,11 +1489,11 @@ class VideoPlayer {
     if (downloadToggle && downloadSection) {
       downloadToggle.addEventListener('click', () => {
         downloadSection.classList.toggle('hidden');
-        // Hide other sections when showing this one
+        // Hide other main sections when showing this one
         document.getElementById('serverSection').classList.add('hidden');
         document.getElementById('episodesSection').classList.add('hidden');
         document.getElementById('infoSection').classList.add('hidden');
-        document.getElementById('relatedSection').classList.add('hidden');
+        // JANGAN sembunyikan relatedSection di sini
       });
     }
 
@@ -612,11 +1504,11 @@ class VideoPlayer {
     if (episodesToggle && episodesSection) {
       episodesToggle.addEventListener('click', () => {
         episodesSection.classList.toggle('hidden');
-        // Hide other sections when showing this one
+        // Hide other main sections when showing this one
         document.getElementById('serverSection').classList.add('hidden');
         document.getElementById('downloadSection').classList.add('hidden');
         document.getElementById('infoSection').classList.add('hidden');
-        document.getElementById('relatedSection').classList.add('hidden');
+        // JANGAN sembunyikan relatedSection di sini
       });
     }
 
@@ -627,15 +1519,14 @@ class VideoPlayer {
     if (infoToggle && infoSection) {
       infoToggle.addEventListener('click', () => {
         infoSection.classList.toggle('hidden');
-        // Hide other sections when showing this one
+        // Hide other main sections when showing this one
         document.getElementById('serverSection').classList.add('hidden');
         document.getElementById('downloadSection').classList.add('hidden');
         document.getElementById('episodesSection').classList.add('hidden');
-        document.getElementById('relatedSection').classList.add('hidden');
+        // JANGAN sembunyikan relatedSection di sini
       });
     }
   }
-
 }
 
 class DownloadSection {
@@ -979,16 +1870,21 @@ class RelatedAnimeSection {
         </h3>
         
         ${this.relatedAnime.length > 0 ? `
-          <div class="mb-4">
-            <h4 class="font-semibold mb-2 text-sm">Related Anime</h4>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div class="mb-6">
+            <h4 class="font-semibold mb-3 text-sm border-b border-gray-200 dark:border-gray-700 pb-2">Related Anime</h4>
+            <div class="space-y-3">
               ${this.relatedAnime.slice(0, 5).map(anime => `
-                <a href="${anime.url}" target="_blank" class="block group">
-                  <div class="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
-                    <img src="${anime.image}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                <a href="${anime.url}" target="_blank" class="flex items-center group hover:bg-primary-50 dark:hover:bg-primary-900 p-2 rounded-lg transition-colors">
+                  <div class="flex-shrink-0 w-12 h-16 rounded overflow-hidden bg-gray-200 dark:bg-gray-700 mr-3">
+                    <img src="${anime.image}" alt="${anime.title}" class="w-full h-full object-cover">
                   </div>
-                  <div class="text-xs font-medium line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${anime.title}</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${anime.title}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Related Series</div>
+                  </div>
+                  <div class="flex-shrink-0 ml-2">
+                    <i class="fas fa-external-link-alt text-xs text-gray-400"></i>
+                  </div>
                 </a>
               `).join('')}
             </div>
@@ -997,15 +1893,20 @@ class RelatedAnimeSection {
         
         ${this.recommendedAnime.length > 0 ? `
           <div>
-            <h4 class="font-semibold mb-2 text-sm">Recommended Anime</h4>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <h4 class="font-semibold mb-3 text-sm border-b border-gray-200 dark:border-gray-700 pb-2">Recommended Anime</h4>
+            <div class="space-y-3">
               ${this.recommendedAnime.slice(0, 5).map(anime => `
-                <a href="${anime.path}" class="block group">
-                  <div class="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
-                    <img src="${anime.image}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                <a href="${anime.path}" class="flex items-center group hover:bg-primary-50 dark:hover:bg-primary-900 p-2 rounded-lg transition-colors">
+                  <div class="flex-shrink-0 w-12 h-16 rounded overflow-hidden bg-gray-200 dark:bg-gray-700 mr-3">
+                    <img src="${anime.image}" alt="${anime.title}" class="w-full h-full object-cover">
                   </div>
-                  <div class="text-xs font-medium line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${anime.title}</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${anime.title}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Recommended for You</div>
+                  </div>
+                  <div class="flex-shrink-0 ml-2">
+                    <i class="fas fa-chevron-right text-xs text-gray-400"></i>
+                  </div>
                 </a>
               `).join('')}
             </div>
@@ -1049,6 +1950,11 @@ class AnimePlayerApp {
         return;
       }
 
+
+      const styleElement = document.createElement('style');
+      styleElement.textContent = customCSS;
+      document.head.appendChild(styleElement);
+
       this.showLoading();
 
       // First fetch the episode data to get the mal_id
@@ -1088,17 +1994,26 @@ class AnimePlayerApp {
 
       // Process related anime
       this.relatedAnime = this.processRelatedAnime(relatedData);
-
       // Get recommended anime based on a random genre
       if (this.animeSeries.genres.length > 0) {
         const randomGenre = this.animeSeries.genres[Math.floor(Math.random() * this.animeSeries.genres.length)];
         try {
           const recommendedData = await this.apiService.getRecommendedAnime(this.blogID, randomGenre);
           this.recommendedAnime = this.processRecommendedAnime(recommendedData);
+          // Simpan feedCategories dari response
+          this.feedCategories = recommendedData.response?.feedCategories || [];
+
+          // Dalam class AnimePlayerApp - method init() - setelah mendapatkan recommendedData
+          console.log('Recommended Data:', recommendedData);
+          console.log('Feed Categories:', recommendedData.response?.feedCategories);
         } catch (error) {
           console.error('Error fetching recommended anime:', error);
           this.recommendedAnime = [];
+          this.feedCategories = [];
         }
+      } else {
+        this.recommendedAnime = [];
+        this.feedCategories = [];
       }
 
       // Render the app
@@ -1111,7 +2026,7 @@ class AnimePlayerApp {
 
   processRelatedAnime(relatedData) {
     if (!relatedData?.data) return [];
-    
+
     return relatedData.data.slice(0, 5).map(item => ({
       title: item.entry.title,
       url: item.entry.url,
@@ -1119,9 +2034,10 @@ class AnimePlayerApp {
     }));
   }
 
+  // Dalam class AnimePlayerApp
   processRecommendedAnime(recommendedData) {
     if (!recommendedData?.response?.entries) return [];
-    
+
     return recommendedData.response.entries.slice(0, 5).map(entry => ({
       title: entry.title,
       path: entry.path,
@@ -1131,7 +2047,7 @@ class AnimePlayerApp {
 
   extractImageFromContent(content) {
     if (!content) return '/placeholder-image.jpg';
-    
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(content, 'text/html');
     const img = doc.querySelector('img');
@@ -1199,16 +2115,62 @@ class AnimePlayerApp {
   render() {
     if (!this.appElement || !this.currentEpisode || !this.animeSeries) return;
 
+    const backdropImage = this.extractImageFromContent(this.currentEpisode.content);
+
+    const backdropElement = document.querySelector('.backdrop-image');
+    if (backdropElement) {
+      // Preload image untuk menghindari FOUC (Flash of Unstyled Content)
+      if (backdropImage) {
+        const img = new Image();
+        img.src = backdropImage;
+        img.onload = function () {
+          // Gambar sudah loaded, apply styles
+          if (backdropElement) {
+            backdropElement.style.opacity = '0';
+            backdropElement.style.backgroundImage = `linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.8)), url('${backdropImage}')`;
+
+            // Fade in effect
+            setTimeout(() => {
+              backdropElement.style.transition = 'opacity 0.5s ease';
+              backdropElement.style.opacity = '1';
+            }, 100);
+          }
+        };
+
+        img.onerror = function () {
+          // Jika gambar gagal load, gunakan fallback
+          if (backdropElement) {
+            backdropElement.classList.add('no-image');
+            backdropElement.innerHTML = `
+        <div class="text-center text-white p-6">
+          <i class="fas fa-play-circle text-6xl mb-6 opacity-80"></i>
+          <h1 class="text-4xl md:text-5xl font-bold mb-4">${this.animeSeries.title}</h1>
+          <div class="w-24 h-1 bg-primary-500 mx-auto mb-4 rounded-full"></div>
+          <p class="text-xl md:text-2xl opacity-90">Episode ${this.currentEpisode.episodeNumber}</p>
+          <p class="text-lg opacity-80 mt-2">${this.currentEpisode.title || ''}</p>
+        </div>
+      `;
+          }
+        };
+      }
+    }
+
     this.appElement.innerHTML = `
-    ${new AnimeHeader(this.animeSeries, this.currentEpisode).render()}
-    <div id="videoPlayerSection">
-      ${new VideoPlayer(this.currentEpisode.streamList).render()}
+    <div class="main-content">
+      ${new AnimeHeader(this.animeSeries, this.currentEpisode, this.animeInfoData).render()}
+      <div id="videoPlayerSection">
+        ${new VideoPlayer(this.currentEpisode.streamList).render()}
+      </div>
+      ${new ServerSection(this.currentEpisode.streamList, this.currentEpisode.streamList[0]).render()}
+      ${new DownloadSection(this.currentEpisode.downloadList).render()}
+      ${new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).render()}
+      ${new AnimeInfoSection(this.animeSeries, this.animeInfoData).render()}
     </div>
-    ${new ServerSection(this.currentEpisode.streamList, this.currentEpisode.streamList[0]).render()}
-    ${new DownloadSection(this.currentEpisode.downloadList).render()}
-    ${new EpisodeNavigation(this.episodesList, this.currentEpisode, this.blogID).render()}
-    ${new AnimeInfoSection(this.animeSeries, this.animeInfoData).render()}
-    ${new RelatedAnimeSection(this.relatedAnime, this.recommendedAnime).render()}
+    
+    <div class="sidebar">
+      ${new RelatedAnimeSection(this.relatedAnime, this.recommendedAnime).render()}
+      ${this.feedCategories && this.feedCategories.length > 0 ? new CategoriesSection(this.feedCategories).render() : ''}
+    </div>
   `;
 
     // Initialize video player
@@ -1222,6 +2184,12 @@ class AnimePlayerApp {
     window.serverSectionInstance.bindEvents(videoPlayer);
     new DownloadSection(this.currentEpisode.downloadList).bindEvents();
     new AnimeInfoSection(this.animeSeries).bindEvents();
+
+    // Pastikan related section selalu terlihat
+    const relatedSection = document.getElementById('relatedSection');
+    if (relatedSection) {
+      relatedSection.classList.remove('hidden');
+    }
   }
 }
 
@@ -1255,102 +2223,3 @@ if (!window.Plyr) {
   };
   document.head.appendChild(plyrJS);
 }
-
-// Add CSS for the slider and dropdowns
-const customCSS = `
-/* Style untuk episode number dengan format berbeda */
-  .episode-number {
-    font-feature-settings: "tnum";
-    font-variant-numeric: tabular-nums;
-  }
-    /* End style episode number */
-
-  .anime-cover-slider {
-    position: relative;
-  }
-  
-  .anime-cover-slider .slide {
-    display: none;
-    opacity: 0;
-    transition: opacity 0.5s ease;
-  }
-  
-  .anime-cover-slider .slide.active {
-    display: block;
-    opacity: 1;
-  }
-  
-  .slider-nav {
-    display: none;
-  }
-  
-  .anime-cover-slider:hover .slider-nav {
-    display: block;
-  }
-  
-  .slider-dots {
-    display: flex;
-  }
-  
-  .dropdown-content {
-    max-height: 300px;
-    overflow-y: auto;
-    z-index: 50;
-    background: rgba(255, 255, 255, 0.95);
-  }
-  
-  .dark .dropdown-content {
-    background: rgba(30, 41, 59, 0.95);
-  }
-  
-  .server-option, .quality-option {
-    cursor: pointer;
-  }
-  
-  .server-option:hover, .quality-option:hover {
-    background-color: rgba(59, 130, 246, 0.1);
-  }
-  
-  .rotate-180 {
-    transform: rotate(180deg);
-    transition: transform 0.2s ease;
-  }
-  
-  /* Fix for dropdown positioning */
-  .relative {
-    position: relative;
-  }
-  
-  .dropdown-content {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    margin-top: 0.25rem;
-  }
-  
-  /* Glass effect for dropdown */
-  .glass {
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-  }
-  
-  .dark .glass {
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  
-  /* Line clamp utility */
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-`;
-
-const styleElement = document.createElement('style');
-styleElement.textContent = customCSS;
-document.head.appendChild(styleElement);
