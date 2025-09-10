@@ -43,6 +43,8 @@ class AnimeInfo {
     this.episodeLimit = 4;
     this.isLoadingEpisodes = false;
     this.hasMoreEpisodes = true;
+    this.isBookmarked = false;
+    this.isInList = false;
 
     this.init();
   }
@@ -246,6 +248,8 @@ class AnimeInfo {
       await this.fetchEpisodeData();
       await this.fetchPicturesData();
       await this.fetchStatisticsData(); // Pastikan MAL ID sudah tersedia
+      this.checkBookmarkStatus();
+      this.checkListStatus();
 
       this.render();
       this.setupBackdrop();
@@ -254,6 +258,145 @@ class AnimeInfo {
       console.error('Error initializing AnimeInfo:', error);
       this.showError('Failed to load anime information. Please try again later.');
     }
+  }
+  checkBookmarkStatus() {
+    const bookmarks = JSON.parse(localStorage.getItem('animeBookmarks') || '{}');
+    this.isBookmarked = !!bookmarks[this.malID];
+  }
+  checkListStatus() {
+    const list = JSON.parse(localStorage.getItem('animeList') || '{}');
+    this.isInList = !!list[this.malID];
+  }
+  toggleBookmark() {
+    this.isBookmarked = !this.isBookmarked;
+
+    // Update localStorage
+    const bookmarks = JSON.parse(localStorage.getItem('animeBookmarks') || '{}');
+
+    if (this.isBookmarked) {
+      bookmarks[this.malID] = {
+        id: this.malID,
+        title: this.animeData.title_english || this.animeData.title,
+        image: this.animeData.images?.jpg?.large_image_url,
+        addedAt: new Date().toISOString()
+      };
+      this.showNotification('Added to bookmarks', 'success');
+    } else {
+      delete bookmarks[this.malID];
+      this.showNotification('Removed from bookmarks', 'info');
+    }
+
+    localStorage.setItem('animeBookmarks', JSON.stringify(bookmarks));
+
+    // Update UI
+    this.updateBookmarkButton();
+  }
+
+  toggleList() {
+    this.isInList = !this.isInList;
+
+    // Update localStorage
+    const list = JSON.parse(localStorage.getItem('animeList') || '{}');
+
+    if (this.isInList) {
+      list[this.malID] = {
+        id: this.malID,
+        title: this.animeData.title_english || this.animeData.title,
+        image: this.animeData.images?.jpg?.large_image_url,
+        addedAt: new Date().toISOString(),
+        status: 'plan_to_watch' // Status default
+      };
+      this.showNotification('Added to your list', 'success');
+    } else {
+      delete list[this.malID];
+      this.showNotification('Removed from your list', 'info');
+    }
+
+    localStorage.setItem('animeList', JSON.stringify(list));
+
+    // Update UI
+    this.updateListButton();
+  }
+
+  /**
+   * Memperbarui tampilan tombol bookmark
+   */
+  updateBookmarkButton() {
+    const bookmarkBtn = this.container.querySelector('.bookmark-button');
+    if (!bookmarkBtn) return;
+
+    const icon = bookmarkBtn.querySelector('i');
+    if (this.isBookmarked) {
+      icon.className = 'fas fa-bookmark text-yellow-500';
+      bookmarkBtn.setAttribute('data-tooltip', 'Remove bookmark');
+    } else {
+      icon.className = 'fas fa-bookmark';
+      bookmarkBtn.setAttribute('data-tooltip', 'Add to bookmarks');
+    }
+  }
+
+  /**
+   * Memperbarui tampilan tombol list
+   */
+  updateListButton() {
+    const listBtn = this.container.querySelector('.add-to-list-button');
+    if (!listBtn) return;
+
+    if (this.isInList) {
+      listBtn.innerHTML = '<i class="fas fa-check mr-2"></i>In List';
+      listBtn.className = 'px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors add-to-list-button';
+      listBtn.setAttribute('data-tooltip', 'Remove from list');
+    } else {
+      listBtn.innerHTML = '<i class="fas fa-plus mr-2"></i>Add to List';
+      listBtn.className = 'px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors add-to-list-button';
+      listBtn.setAttribute('data-tooltip', 'Add to your list');
+    }
+  }
+
+  /**
+   * Menampilkan notifikasi
+   */
+  showNotification(message, type = 'info') {
+    // Hapus notifikasi yang sudah ada
+    const existingNotification = document.getElementById('anime-notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+
+    // Buat elemen notifikasi
+    const notification = document.createElement('div');
+    notification.id = 'anime-notification';
+    notification.className = `fixed bottom-4 mb-24 md:mb-0 right-4 px-4 py-3 rounded-lg shadow-lg transition-opacity duration-300 ${type === 'success' ? 'bg-green-500 text-white' :
+      type === 'error' ? 'bg-red-500 text-white' :
+        'bg-blue-500 text-white'
+      }`;
+    notification.innerHTML = `
+      <div class="flex items-center">
+        <i class="fas ${type === 'success' ? 'fa-check-circle' :
+        type === 'error' ? 'fa-exclamation-circle' :
+          'fa-info-circle'
+      } mr-2"></i>
+        <span>${message}</span>
+      </div>
+    `;
+
+    // Tambahkan ke DOM
+    document.body.appendChild(notification);
+
+    // Animasi masuk
+    setTimeout(() => {
+      notification.classList.add('opacity-100');
+    }, 10);
+
+    // Hapus setelah 3 detik
+    setTimeout(() => {
+      notification.classList.remove('opacity-100');
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
   }
 
   /**
@@ -565,8 +708,248 @@ class AnimeInfo {
     }
 
     // this.setupInfiniteScroll();
+
+    const bookmarkBtn = this.container.querySelector('.bookmark-button');
+    if (bookmarkBtn) {
+      bookmarkBtn.addEventListener('click', () => {
+        this.toggleBookmark();
+      });
+    }
+
+    // Setup untuk tombol add to list
+    const listBtn = this.container.querySelector('.add-to-list-button');
+    if (listBtn) {
+      listBtn.addEventListener('click', () => {
+        this.toggleList();
+      });
+    }
+
+    // Setup tooltips
+    this.setupTooltips();
+
+    // Setup untuk tombol watch now
+    const watchNowBtn = this.container.querySelector('.watch-now-button');
+    if (watchNowBtn) {
+      watchNowBtn.addEventListener('click', () => {
+        this.handleWatchNow();
+      });
+    }
+
+    // Setup untuk tombol watch now di mobile
+    const watchNowBtnMobile = this.container.querySelector('.watch-now-button-mobile');
+    if (watchNowBtnMobile) {
+      watchNowBtnMobile.addEventListener('click', () => {
+        this.handleWatchNowMobile();
+      });
+    }
+
+    // Setup untuk tombol add to list di mobile
+    const listBtnMobile = this.container.querySelector('.add-to-list-button-mobile');
+    if (listBtnMobile) {
+      listBtnMobile.addEventListener('click', () => {
+        this.toggleListMobile();
+      });
+    }
+
+    // Setup untuk tombol bookmark di mobile
+    const bookmarkBtnMobile = this.container.querySelector('.bookmark-button-mobile');
+    if (bookmarkBtnMobile) {
+      bookmarkBtnMobile.addEventListener('click', () => {
+        this.toggleBookmark();
+        this.updateBookmarkButtonMobile();
+      });
+    }
+
   }
 
+  /**
+   * Memperbarui tampilan tombol bookmark di mobile
+   */
+  updateBookmarkButtonMobile() {
+    const bookmarkBtnMobile = this.container.querySelector('.bookmark-button-mobile');
+    if (!bookmarkBtnMobile) return;
+
+    const icon = bookmarkBtnMobile.querySelector('i');
+    if (this.isBookmarked) {
+      icon.className = 'fas fa-bookmark text-yellow-500';
+      bookmarkBtnMobile.setAttribute('data-tooltip', 'Remove bookmark');
+    } else {
+      icon.className = 'fas fa-bookmark';
+      bookmarkBtnMobile.setAttribute('data-tooltip', 'Add to bookmarks');
+    }
+  }
+  
+/**
+   * Menangani klik tombol Watch Now di mobile
+   */
+  async handleWatchNowMobile() {
+    // Tampilkan loading spinner di tombol mobile
+    const watchNowBtnMobile = this.container.querySelector('.watch-now-button-mobile');
+    if (!watchNowBtnMobile) return;
+    
+    const originalHtml = watchNowBtnMobile.innerHTML;
+    watchNowBtnMobile.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading...';
+    watchNowBtnMobile.disabled = true;
+    
+    try {
+      // Ambil data episode dari API
+      const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode&limit=10000&offset=0`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch episodes');
+      }
+      
+      const data = await response.json();
+      
+      // Cari episode pertama
+      const firstEpisode = this.findFirstEpisode(data.entries || []);
+      
+      if (firstEpisode) {
+        // Redirect ke episode pertama
+        window.location.href = firstEpisode.path;
+      } else {
+        this.showNotification('No episodes found', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching episodes:', error);
+      this.showNotification('Failed to load episodes', 'error');
+    } finally {
+      // Kembalikan tombol ke state semula
+      watchNowBtnMobile.innerHTML = originalHtml;
+      watchNowBtnMobile.disabled = false;
+    }
+  }
+
+  /**
+   * Menangani toggle list di mobile
+   */
+  toggleListMobile() {
+    this.toggleList();
+    
+    // Update UI untuk tombol mobile
+    this.updateListButtonMobile();
+  }
+
+  /**
+   * Memperbarui tampilan tombol list di mobile
+   */
+  updateListButtonMobile() {
+    const listBtnMobile = this.container.querySelector('.add-to-list-button-mobile');
+    if (!listBtnMobile) return;
+
+    const icon = listBtnMobile.querySelector('i');
+    if (this.isInList) {
+      icon.className = 'fas fa-check';
+      listBtnMobile.setAttribute('data-tooltip', 'Remove from list');
+    } else {
+      icon.className = 'fas fa-plus';
+      listBtnMobile.setAttribute('data-tooltip', 'Add to your list');
+    }
+  }
+  setupTooltips() {
+    const tooltipElements = this.container.querySelectorAll('[data-tooltip]');
+
+    tooltipElements.forEach(element => {
+      // Hapus tooltip lama jika ada
+      const oldTooltip = element.querySelector('.tooltip');
+      if (oldTooltip) {
+        oldTooltip.remove();
+      }
+
+      // Buat tooltip baru
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 pointer-events-none transition-opacity group-hover:opacity-100';
+      tooltip.textContent = element.getAttribute('data-tooltip');
+
+      // Tambahkan class group ke parent element
+      element.classList.add('group', 'relative');
+
+      // Tambahkan tooltip ke element
+      element.appendChild(tooltip);
+    });
+  }
+  /**
+     * Menangani klik tombol Watch Now
+     */
+  async handleWatchNow() {
+    // Tampilkan loading spinner di tombol
+    const watchNowBtn = this.container.querySelector('.watch-now-button');
+    if (!watchNowBtn) return;
+
+    const originalHtml = watchNowBtn.innerHTML;
+    watchNowBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
+    watchNowBtn.disabled = true;
+
+    try {
+      // Ambil data episode dari API
+      const response = await fetch(`https://mangadb.paukuman.workers.dev/anime?blogID=${this.blogID}&mal_id=${this.malID}&page=episode&limit=10000&offset=0`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch episodes');
+      }
+
+      const data = await response.json();
+
+      // Cari episode pertama
+      const firstEpisode = this.findFirstEpisode(data.entries || []);
+
+      if (firstEpisode) {
+        // Redirect ke episode pertama
+        window.location.href = firstEpisode.path;
+      } else {
+        this.showNotification('No episodes found', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching episodes:', error);
+      this.showNotification('Failed to load episodes', 'error');
+    } finally {
+      // Kembalikan tombol ke state semula
+      watchNowBtn.innerHTML = originalHtml;
+      watchNowBtn.disabled = false;
+    }
+  }
+
+  /**
+   * Mencari episode pertama dari daftar episode
+   * @param {Array} episodes - Daftar episode
+   * @returns {Object|null} Episode pertama atau null jika tidak ditemukan
+   */
+  findFirstEpisode(episodes) {
+    if (!episodes || episodes.length === 0) return null;
+
+    // Ekstrak semua nomor episode dan urutkan
+    const episodeNumbers = [];
+    const episodeMap = {};
+
+    episodes.forEach(episode => {
+      const epNumber = this.extractEpisodeNumber(episode.categories);
+      if (epNumber !== null) {
+        // Konversi ke angka untuk sorting yang benar (menangani angka desimal)
+        const numericValue = parseFloat(epNumber);
+        episodeNumbers.push(numericValue);
+        episodeMap[numericValue] = episode;
+      }
+    });
+
+    // Jika tidak ada episode yang ditemukan
+    if (episodeNumbers.length === 0) return null;
+
+    // Urutkan nomor episode
+    episodeNumbers.sort((a, b) => a - b);
+
+    // Ambil episode dengan nomor terkecil (episode pertama)
+    return episodeMap[episodeNumbers[0]];
+  }
+
+  /**
+   * Extracts episode number from episode categories
+   * @param {Array} categories - Episode categories array
+   * @returns {string|null} Episode number or null if not found
+   */
+  extractEpisodeNumber(categories) {
+    const epCat = categories?.find(cat => cat.startsWith('episode:'));
+    return epCat ? epCat.split(':')[1] : null;
+  }
   /**
   * Menampilkan modal dengan semua karakter
   */
@@ -902,20 +1285,26 @@ class AnimeInfo {
             </div>
             ` : ''}
 
-            <div class="flex flex-wrap gap-2">
-              <button class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
-                <i class="fas fa-plus mr-2"></i>Add to List
-              </button>
-              <button class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                <i class="fas fa-play mr-2"></i>Watch Now
-              </button>
-              <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors share-button" data-title="${englishTitle}">
-                <i class="fas fa-share-alt"></i>
-              </button>
-              <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-                <i class="fas fa-bookmark"></i>
-              </button>
-            </div>
+             <div class="flex flex-wrap gap-2">
+          <button class="add-to-list-button px-4 py-2 ${this.isInList ? 'bg-green-500' : 'bg-primary-500'
+      } text-white rounded-lg hover:${this.isInList ? 'bg-green-600' : 'bg-primary-600'
+      } transition-colors" data-tooltip="${this.isInList ? 'Remove from list' : 'Add to your list'
+      }">
+            <i class="fas ${this.isInList ? 'fa-check' : 'fa-plus'
+      } mr-2"></i>${this.isInList ? 'In List' : 'Add to List'}
+          </button>
+          <button class="watch-now-button px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors" data-tooltip="Watch first episode">
+            <i class="fas fa-play mr-2"></i>Watch Now
+          </button>
+          <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors share-button" data-tooltip="Share">
+            <i class="fas fa-share-alt"></i>
+          </button>
+          <button class="p-2 bookmark-button bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors" data-tooltip="${this.isBookmarked ? 'Remove bookmark' : 'Add to bookmarks'
+      }">
+            <i class="fas fa-bookmark ${this.isBookmarked ? 'text-yellow-500' : ''
+      }"></i>
+          </button>
+        </div>
           </div>
         </div>
 
@@ -934,11 +1323,22 @@ class AnimeInfo {
           </p>
           ` : ''}
           <div class="flex gap-2 mt-3">
-            <button class="flex-1 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm">
+            <button class="watch-now-button-mobile flex-1 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm" data-tooltip="Watch first episode">
               <i class="fas fa-play mr-1"></i>Watch
             </button>
-            <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors">
-              <i class="fas fa-plus"></i>
+            <button class="add-to-list-button-mobile p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors" data-tooltip="${
+              this.isInList ? 'Remove from list' : 'Add to your list'
+            }">
+              <i class="fas ${
+                this.isInList ? 'fa-check' : 'fa-plus'
+              }"></i>
+            </button>
+            <button class="bookmark-button-mobile p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors" data-tooltip="${
+              this.isBookmarked ? 'Remove bookmark' : 'Add to bookmarks'
+            }">
+              <i class="fas fa-bookmark ${
+                this.isBookmarked ? 'text-yellow-500' : ''
+              }"></i>
             </button>
             <button class="p-2 bg-primary-200 dark:bg-primary-800 rounded-lg hover:bg-primary-300 dark:hover:bg-primary-700 transition-colors share-button" data-title="${englishTitle}">
               <i class="fas fa-share-alt"></i>
