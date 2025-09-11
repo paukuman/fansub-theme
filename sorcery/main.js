@@ -19,7 +19,11 @@ class FetchProgress {
     PROGRESS_BAR: '#progress-bar',
     PROGRESS_PERCENT: '#progress-percent',
     LOAD_MORE_BUTTON: '#load-more-button',
-    LOAD_MORE_CONTAINER: '#load-more-container'
+    LOAD_MORE_CONTAINER: '#load-more-container',
+    // Tambahkan selector untuk tab dan kontainer bookmark/list
+    TABS_CONTAINER: '#tabs-container',
+    BOOKMARK_TAB: '#bookmark-tab',
+    LIST_TAB: '#list-tab'
   };
 
   // Error Messages
@@ -60,12 +64,297 @@ class FetchProgress {
     this.signal = null;
     this.lastProgress = 0;
     this.retryCount = 0;
-    
+    this.activeTab = 'api'; // 'api', 'bookmark', atau 'list'
+
     // Validate essential DOM elements exist
     this.validateDOM();
-    
+
     // Initialize load more button
     this.initLoadMoreButton();
+
+    // Initialize tabs for bookmark and list
+    this.initTabs();
+
+    // Load data from localStorage jika ada
+    this.loadLocalData();
+  }
+
+  /**
+   * Inisialisasi tab untuk bookmark dan list
+   * @private
+   */
+  initTabs() {
+    // Buat elemen tab jika belum ada
+    const contentContainer = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
+    if (contentContainer && !document.querySelector(FetchProgress.SELECTORS.TABS_CONTAINER)) {
+      const tabsHTML = `
+      <div id="tabs-container" class="flex mb-4 overflow-x-auto scrollbar-hide whitespace-nowrap py-2 -mx-2 px-2">
+        <div class="flex space-x-2">
+          <button id="api-tab" class="tab-button active px-4 py-2 font-medium text-sm rounded-lg transition-colors whitespace-nowrap flex-shrink-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" data-tab="api">
+            Latest Updates
+          </button>
+          <button id="bookmark-tab" class="tab-button px-4 py-2 font-medium text-sm rounded-lg transition-colors whitespace-nowrap flex-shrink-0 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200" data-tab="bookmark">
+            Bookmarks
+          </button>
+          <button id="list-tab" class="tab-button px-4 py-2 font-medium text-sm rounded-lg transition-colors whitespace-nowrap flex-shrink-0 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200" data-tab="list">
+            My List
+          </button>
+        </div>
+      </div>
+    `;
+
+      contentContainer.insertAdjacentHTML('beforebegin', tabsHTML);
+
+      // Tambahkan event listener untuk tab
+      document.querySelectorAll('.tab-button').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabName = tab.getAttribute('data-tab');
+          this.switchTab(tabName);
+        });
+      });
+    }
+  }
+
+  /**
+   * Beralih antara tab yang berbeda
+   * @param {string} tabName - Nama tab yang akan diaktifkan
+   */
+  switchTab(tabName) {
+    this.activeTab = tabName;
+
+    // Update tampilan tab
+    document.querySelectorAll('.tab-button').forEach(tab => {
+      if (tab.getAttribute('data-tab') === tabName) {
+        tab.classList.remove('bg-gray-100', 'text-gray-800', 'dark:bg-gray-700', 'dark:text-gray-200');
+        tab.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900', 'dark:text-blue-200');
+      } else {
+        tab.classList.remove('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900', 'dark:text-blue-200');
+        tab.classList.add('bg-gray-100', 'text-gray-800', 'dark:bg-gray-700', 'dark:text-gray-200');
+      }
+    });
+
+    // Muat ulang konten berdasarkan tab aktif
+    if (tabName === 'api') {
+      this.currentOffset = 1;
+      this.hasMore = true;
+      this.execute();
+    } else {
+      this.loadLocalData();
+    }
+  }
+
+  /**
+   * Memuat data dari localStorage untuk bookmark dan list
+   */
+  loadLocalData() {
+    const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
+    if (!container) return;
+
+    if (this.activeTab === 'bookmark') {
+      this.renderBookmarks();
+    } else if (this.activeTab === 'list') {
+      this.renderList();
+    }
+  }
+
+  /**
+   * Render bookmark dari localStorage
+   */
+  renderBookmarks() {
+    const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
+    if (!container) return;
+
+    const bookmarksData = localStorage.getItem('animeBookmarks');
+    if (!bookmarksData) {
+      container.innerHTML = '<p class="text-gray-600 dark:text-gray-400 p-4 text-center">No bookmarks yet</p>';
+      return;
+    }
+
+    try {
+      const bookmarks = JSON.parse(bookmarksData);
+      const bookmarkIds = Object.keys(bookmarks);
+
+      if (bookmarkIds.length === 0) {
+        container.innerHTML = '<p class="text-gray-600 dark:text-gray-400 p-4 text-center">No bookmarks yet</p>';
+        return;
+      }
+
+      this.renderAnimeItems(bookmarks, container);
+    } catch (error) {
+      console.error('Error parsing bookmarks:', error);
+      container.innerHTML = '<p class="text-red-500 dark:text-red-400 p-4 text-center">Error loading bookmarks</p>';
+    }
+  }
+
+  /**
+   * Render list dari localStorage
+   */
+  renderList() {
+    const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
+    if (!container) return;
+
+    const listData = localStorage.getItem('animeList');
+    if (!listData) {
+      container.innerHTML = '<p class="text-gray-600 dark:text-gray-400 p-4 text-center">Your list is empty</p>';
+      return;
+    }
+
+    try {
+      const list = JSON.parse(listData);
+      const listIds = Object.keys(list);
+
+      if (listIds.length === 0) {
+        container.innerHTML = '<p class="text-gray-600 dark:text-gray-400 p-4 text-center">Your list is empty</p>';
+        return;
+      }
+
+      this.renderAnimeItems(list, container, true);
+    } catch (error) {
+      console.error('Error parsing list:', error);
+      container.innerHTML = '<p class="text-red-500 dark:text-red-400 p-4 text-center">Error loading your list</p>';
+    }
+  }
+
+  /**
+   * Render item anime dari data localStorage
+   * @param {Object} data - Data anime dari localStorage
+   * @param {HTMLElement} container - Container untuk merender
+   * @param {boolean} showStatus - Tampilkan status untuk list items
+   */
+  renderAnimeItems(data, container, showStatus = false) {
+    const fragment = document.createDocumentFragment();
+
+    Object.values(data).forEach(anime => {
+      try {
+        const animeElement = this.createAnimeElement(anime, showStatus);
+        if (animeElement) {
+          fragment.appendChild(animeElement);
+        }
+      } catch (error) {
+        console.error('Error creating anime element:', error, anime);
+      }
+    });
+
+    container.innerHTML = '';
+    container.appendChild(fragment);
+
+    // Sembunyikan load more container untuk tab bookmark/list
+    const loadMoreContainer = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_CONTAINER);
+    if (loadMoreContainer) {
+      loadMoreContainer.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Buat elemen anime untuk bookmark/list
+   * @param {Object} anime - Data anime
+   * @param {boolean} showStatus - Tampilkan status
+   * @returns {Node|null} Elemen DOM atau null jika gagal
+   */
+  createAnimeElement(anime, showStatus = false) {
+    try {
+      const statusClass = this.getStatusClass(anime.status);
+      const addedDate = new Date(anime.addedAt).toLocaleDateString();
+
+      const html = `
+        <div class="flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
+          <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden max-[374px]:hidden">
+            <img src="${this.escapeHTML(anime.image)}" alt="${this.escapeHTML(anime.title)}" class="w-full h-full object-cover" loading="lazy">
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between items-start">
+              <div>
+                <h4 class="font-medium line-clamp-2">${this.escapeHTML(anime.title)}</h4>
+                <div class="flex gap-2 mt-1">
+                  ${showStatus ? `<span class="text-xs ${statusClass} px-2 py-1 rounded">${this.escapeHTML(this.formatStatus(anime.status))}</span>` : ''}
+                  <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Added: ${addedDate}</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-2 flex gap-2">
+              <button class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded remove-bookmark" data-id="${anime.id}" data-type="${showStatus ? 'list' : 'bookmark'}">
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const element = this.createElementFromHTML(html);
+
+      // Tambahkan event listener untuk tombol remove
+      if (element) {
+        const removeBtn = element.querySelector('.remove-bookmark');
+        if (removeBtn) {
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeFromStorage(anime.id, showStatus ? 'list' : 'bookmark');
+          });
+        }
+      }
+
+      return element;
+    } catch (error) {
+      console.error('Error creating anime element:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Dapatkan class CSS berdasarkan status anime
+   * @param {string} status - Status anime
+   * @returns {string} Class CSS
+   */
+  getStatusClass(status) {
+    const statusClasses = {
+      'watching': 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
+      'completed': 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
+      'on_hold': 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200',
+      'dropped': 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200',
+      'plan_to_watch': 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+    };
+
+    return statusClasses[status] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
+  }
+
+  /**
+   * Format status untuk ditampilkan
+   * @param {string} status - Status anime
+   * @returns {string} Status yang diformat
+   */
+  formatStatus(status) {
+    const statusMap = {
+      'watching': 'Watching',
+      'completed': 'Completed',
+      'on_hold': 'On Hold',
+      'dropped': 'Dropped',
+      'plan_to_watch': 'Plan to Watch'
+    };
+
+    return statusMap[status] || status;
+  }
+
+  /**
+   * Hapus item dari storage
+   * @param {string} id - ID anime
+   * @param {string} type - Tipe storage ('bookmark' atau 'list')
+   */
+  removeFromStorage(id, type) {
+    const storageKey = type === 'bookmark' ? 'animeBookmarks' : 'animeList';
+    const data = localStorage.getItem(storageKey);
+
+    if (!data) return;
+
+    try {
+      const items = JSON.parse(data);
+      delete items[id];
+      localStorage.setItem(storageKey, JSON.stringify(items));
+
+      // Muat ulang konten
+      this.loadLocalData();
+    } catch (error) {
+      console.error('Error removing item from storage:', error);
+    }
   }
 
   /**
@@ -88,7 +377,7 @@ class FetchProgress {
     const loadMoreButton = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_BUTTON);
     if (loadMoreButton) {
       loadMoreButton.addEventListener('click', () => {
-        if (!this.isLoading && this.hasMore) {
+        if (!this.isLoading && this.hasMore && this.activeTab === 'api') {
           this.currentOffset += FetchProgress.CONFIG.ITEMS_PER_PAGE;
           this.execute(true); // true indicates it's a "load more" request
         }
@@ -119,23 +408,23 @@ class FetchProgress {
   buildApiUrl(endpoint, params) {
     try {
       const url = new URL(endpoint, FetchProgress.CONFIG.BASE_API_URL);
-      
+
       // Add blogID if available
       if (this.blogID) {
         url.searchParams.set('blogID', this.blogID);
       }
-      
+
       // Add pagination parameters
       url.searchParams.set('limit', FetchProgress.CONFIG.ITEMS_PER_PAGE.toString());
       url.searchParams.set('offset', this.currentOffset.toString());
-      
+
       // Add additional parameters
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           url.searchParams.set(key, value.toString());
         }
       });
-      
+
       return url.toString();
     } catch (error) {
       console.error('Error building API URL:', error);
@@ -184,7 +473,7 @@ class FetchProgress {
   updateLoadMoreButton() {
     const loadMoreContainer = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_CONTAINER);
     const loadMoreButton = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_BUTTON);
-    
+
     if (loadMoreContainer && loadMoreButton) {
       if (this.hasMore) {
         loadMoreContainer.classList.remove('hidden');
@@ -234,11 +523,11 @@ class FetchProgress {
     if (this.retryCount < FetchProgress.CONFIG.MAX_RETRIES) {
       this.retryCount++;
       console.warn(`Retrying request (${this.retryCount}/${FetchProgress.CONFIG.MAX_RETRIES})...`);
-      
+
       await new Promise(resolve => setTimeout(resolve, FetchProgress.CONFIG.RETRY_DELAY * this.retryCount));
       return this.fetchWithProgress(fetchFunction);
     }
-    
+
     throw error;
   }
 
@@ -251,48 +540,48 @@ class FetchProgress {
   async fetchWithProgress(progressCallback) {
     this.setupAbortController();
     this.showLoading();
-    
+
     try {
-      const response = await fetch(this.apiUrl, { 
+      const response = await fetch(this.apiUrl, {
         signal: this.signal,
         headers: {
           'Accept': 'application/json',
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`${FetchProgress.ERROR_MESSAGES.FETCH_ERROR}: ${response.status} ${response.statusText}`);
       }
-      
+
       const contentLength = response.headers.get('Content-Length');
       const totalBytes = contentLength ? parseInt(contentLength) : null;
-      
+
       if (!response.body) {
         throw new Error(FetchProgress.ERROR_MESSAGES.INVALID_RESPONSE);
       }
-      
+
       let loadedBytes = 0;
       const reader = response.body.getReader();
       const chunks = [];
-      
+
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           progressCallback(100); // Ensure 100% when done
           break;
         }
-        
+
         chunks.push(value);
         loadedBytes += value.length;
-        
+
         // Calculate progress
         const progress = this.calculateProgress(loadedBytes, totalBytes);
         progressCallback(progress);
       }
-      
+
       return this.processResponse(chunks);
-      
+
     } catch (error) {
       return this.handleFetchError(error, progressCallback);
     }
@@ -321,14 +610,14 @@ class FetchProgress {
     try {
       const combined = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
       let offset = 0;
-      
+
       chunks.forEach(chunk => {
         combined.set(chunk, offset);
         offset += chunk.length;
       });
-      
+
       const text = new TextDecoder("utf-8").decode(combined);
-      
+
       try {
         return JSON.parse(text);
       } catch (parseError) {
@@ -350,17 +639,17 @@ class FetchProgress {
     if (Math.abs(percent - this.lastProgress) < FetchProgress.CONFIG.MIN_PROGRESS_UPDATE && percent !== 100) {
       return;
     }
-    
+
     this.lastProgress = percent;
-    
+
     try {
       const { PROGRESS_BAR, PROGRESS_PERCENT } = FetchProgress.SELECTORS;
       const progressBar = document.querySelector(PROGRESS_BAR);
       const progressPercent = document.querySelector(PROGRESS_PERCENT);
-      
+
       if (progressBar) progressBar.style.width = `${percent}%`;
       if (progressPercent) progressPercent.textContent = `${percent}%`;
-      
+
       if (percent === 100) {
         setTimeout(() => this.hideLoading(), FetchProgress.CONFIG.HIDE_DELAY);
       }
@@ -400,7 +689,7 @@ class FetchProgress {
       const title = animeInfo.title || entry.title || "Untitled";
       const coverImage = this.extractCoverImage(entry.content);
       const publishDate = entry.published?.relative || 'Posted recently';
-      
+
       const html = `
         <div class="flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
           ${this.renderCoverImage(coverImage, title, entry.path)}
@@ -419,7 +708,7 @@ class FetchProgress {
           </div>
         </div>
       `;
-      
+
       return this.createElementFromHTML(html);
     } catch (error) {
       console.error('Error creating entry element:', error, entry);
@@ -434,7 +723,7 @@ class FetchProgress {
    */
   escapeHTML(text) {
     if (typeof text !== 'string') return '';
-    
+
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -457,7 +746,7 @@ class FetchProgress {
         </div>
       `;
     }
-    
+
     return `
       <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg overflow-hidden max-[374px]:hidden">
         <a href="${this.escapeHTML(path)}" class="w-full h-full flex items-center justify-center text-white">
@@ -474,12 +763,12 @@ class FetchProgress {
    */
   renderResolutions(resolutions) {
     if (!resolutions || !resolutions.length) return '';
-    
+
     return `
       <div class="flex gap-1 flex-wrap justify-end max-[480px]:hidden" style="max-width: 150px;">
-        ${resolutions.map(res => 
-          `<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${this.escapeHTML(res)}p</span>`
-        ).join('')}
+        ${resolutions.map(res =>
+      `<span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${this.escapeHTML(res)}p</span>`
+    ).join('')}
       </div>
     `;
   }
@@ -492,9 +781,9 @@ class FetchProgress {
    */
   extractCategory(categories, prefix) {
     if (!categories || !Array.isArray(categories)) return null;
-    
+
     try {
-      const category = categories.find(cat => 
+      const category = categories.find(cat =>
         cat && typeof cat === 'string' && cat.startsWith(`${prefix}:`)
       );
       return category ? category.split(':')[1] : null;
@@ -526,7 +815,7 @@ class FetchProgress {
    */
   extractCoverImage(content) {
     if (!content || typeof content !== 'string') return null;
-    
+
     try {
       const match = content.match(/src="([^"]+)"/);
       return match ? match[1] : null;
@@ -545,7 +834,7 @@ class FetchProgress {
   renderError(message, details = '') {
     const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
     if (!container) return;
-    
+
     container.innerHTML = `
       <div class="p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
         <div class="flex items-start">
@@ -574,30 +863,30 @@ class FetchProgress {
       console.error(FetchProgress.ERROR_MESSAGES.NO_CONTENT_CONTAINER);
       return;
     }
-    
+
     // Handle empty or invalid data
     if (!data || typeof data !== 'object' || !data.entries || !Array.isArray(data.entries)) {
       this.renderError('Invalid data received from server', 'The server returned an unexpected format.');
       return;
     }
-    
+
     // Update hasMore state based on the number of items returned
     // If we get fewer items than requested, we've reached the end
     this.hasMore = data.entries.length === FetchProgress.CONFIG.ITEMS_PER_PAGE;
-    
+
     if (!data.entries.length && !isLoadMore) {
       container.innerHTML = '<p class="text-gray-600 dark:text-gray-400 p-4 text-center">No content available</p>';
       return;
     }
-    
+
     const fragment = document.createDocumentFragment();
     let successfulRenders = 0;
-    
+
     data.entries.forEach(entry => {
       try {
         const animeInfo = entry.animeinfo?.entries?.[0] || {};
         const entryElement = this.createEntryElement(entry, animeInfo);
-        
+
         if (entryElement) {
           fragment.appendChild(entryElement);
           successfulRenders++;
@@ -609,25 +898,25 @@ class FetchProgress {
             Error rendering entry: ${this.escapeHTML(entry.title || 'Untitled')}
           </div>`
         );
-        
+
         if (errorElement) {
           fragment.appendChild(errorElement);
         }
       }
     });
-    
+
     if (successfulRenders === 0 && !isLoadMore) {
       this.renderError('Failed to render any content', 'All entries could not be processed.');
       return;
     }
-    
+
     if (isLoadMore) {
       container.appendChild(fragment);
     } else {
       container.innerHTML = '';
       container.appendChild(fragment);
     }
-    
+
     // Update the load more button state
     this.updateLoadMoreButton();
   }
@@ -637,16 +926,21 @@ class FetchProgress {
    * @async
    * @param {boolean} isLoadMore - Whether this is a load more operation
    */
+  /**
+  * Executes the fetch and render process
+  * @async
+  * @param {boolean} isLoadMore - Whether this is a load more operation
+  */
   async execute(isLoadMore = false) {
-    if (this.isLoading) return;
-    
+    if (this.isLoading || this.activeTab !== 'api') return;
+
     this.isLoading = true;
-    
+
     // Show loading state on load more button if it's a load more operation
     if (isLoadMore) {
       this.showLoadMoreLoading();
     }
-    
+
     try {
       this.apiUrl = this.buildApiUrl(this.endpoint, this.baseParams);
       const data = await this.fetchWithProgress(this.updateProgress.bind(this));
@@ -657,17 +951,17 @@ class FetchProgress {
         console.log('Request was aborted');
         return;
       }
-      
+
       console.error('Fetch error:', error);
-      
+
       let errorMessage = FetchProgress.ERROR_MESSAGES.FETCH_ERROR;
       let errorDetails = error.message;
-      
+
       if (error.message.includes('Failed to fetch')) {
         errorMessage = FetchProgress.ERROR_MESSAGES.NETWORK_ERROR;
         errorDetails = 'Please check your internet connection and try again.';
       }
-      
+
       // Only show error if it's not a load more operation
       if (!isLoadMore) {
         this.renderError(errorMessage, errorDetails);
@@ -678,7 +972,33 @@ class FetchProgress {
     } finally {
       this.isLoading = false;
       this.hideLoading();
-      this.updateLoadMoreButton();
+
+      // Only update load more button for API tab
+      if (this.activeTab === 'api') {
+        this.updateLoadMoreButton();
+      }
+    }
+  }
+
+  /**
+   * Shows or hides the load more button based on hasMore state
+   * @private
+   */
+  updateLoadMoreButton() {
+    // Only update for API tab
+    if (this.activeTab !== 'api') return;
+
+    const loadMoreContainer = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_CONTAINER);
+    const loadMoreButton = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_BUTTON);
+
+    if (loadMoreContainer && loadMoreButton) {
+      if (this.hasMore) {
+        loadMoreContainer.classList.remove('hidden');
+        loadMoreButton.disabled = false;
+        loadMoreButton.textContent = 'Load More';
+      } else {
+        loadMoreContainer.classList.add('hidden');
+      }
     }
   }
 
@@ -704,7 +1024,7 @@ class FetchProgress {
 }
 
 // Usage Example
-const fetcher = new FetchProgress('/anime', { 
+const fetcher = new FetchProgress('/anime', {
   page: 'episode',
   // Add other parameters as needed
 });
