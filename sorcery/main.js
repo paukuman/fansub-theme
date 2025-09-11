@@ -281,7 +281,7 @@ class FetchProgress {
 
       const html = `
         <div class="flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
-          <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+          <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden max-[374px]:hidden">
             <img src="${this.escapeHTML(anime.image)}" alt="${this.escapeHTML(anime.title)}" class="w-full h-full object-cover" loading="lazy">
           </div>
           <div class="flex-1">
@@ -1057,7 +1057,7 @@ class FetchProgress {
   renderCoverImage(coverImage, title, path) {
     if (coverImage) {
       return `
-        <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden max-[374px]:hidden">
+        <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
           <a href="${this.escapeHTML(path)}">
             <img src="${this.escapeHTML(coverImage)}" alt="${this.escapeHTML(title)}" class="w-full h-full object-cover" loading="lazy">
           </a>
