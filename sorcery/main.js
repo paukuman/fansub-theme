@@ -15,7 +15,6 @@ class FetchProgress {
     BLOG_ID: 'meta[name="blogID"]',
     CONTENT_CONTAINER: '#content-container',
     PROGRESS_CONTAINER: '#progress-container',
-    SKELETON_CONTAINER: '#skeleton-container',
     PROGRESS_BAR: '#progress-bar',
     PROGRESS_PERCENT: '#progress-percent',
     LOAD_MORE_BUTTON: '#load-more-button',
@@ -244,7 +243,31 @@ class FetchProgress {
       loadMoreContainer.classList.add('hidden');
     }
   }
+  // Tambahkan method baru ini di dalam class FetchProgress
 
+  /**
+   * Shows initial loading skeleton inside the content container
+   * @private
+   */
+  showInitialSkeleton() {
+    const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
+    if (!container) return;
+
+    // Contoh HTML untuk satu item skeleton, ulangi sesuai kebutuhan
+    const skeletonItemHTML = `
+    <div class="flex gap-4 p-3 animate-pulse">
+      <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg max-[374px]:hidden"></div>
+      <div class="flex-1 space-y-3">
+        <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+      </div>
+    </div>
+  `;
+
+    // Ulangi skeleton sebanyak item per halaman
+    container.innerHTML = skeletonItemHTML.repeat(FetchProgress.CONFIG.ITEMS_PER_PAGE);
+  }
   /**
    * Buat elemen anime untuk bookmark/list
    * @param {Object} anime - Data anime
@@ -315,6 +338,282 @@ class FetchProgress {
     };
 
     return statusClasses[status] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
+  }
+
+  // Di dalam class FetchProgress, tambahkan method berikut:
+
+  /**
+   * Memuat data spotlight anime untuk carousel
+   */
+  async loadSpotlightData() {
+    try {
+      // Tampilkan loading state
+      document.getElementById('spotlight-carousel').classList.add('hidden');
+      document.getElementById('spotlight-loading').classList.remove('hidden');
+
+      // Build API URL untuk animeinfo
+      this.apiUrl = this.buildApiUrl('/anime', {
+        page: 'animeinfo',
+        limit: 5, // Ambil 5 item untuk carousel
+        offset: 0
+      });
+
+      // Fetch spotlight data
+      const data = await this.fetchWithProgress(this.updateProgress.bind(this));
+
+      // Render spotlight carousel
+      this.renderSpotlightCarousel(data);
+
+    } catch (error) {
+      console.error('Error loading spotlight data:', error);
+      document.getElementById('spotlight-loading').innerHTML = `
+            <div class="h-full flex items-center justify-center text-red-500 dark:text-red-400">
+                <div class="text-center">
+                    <i class="fas fa-exclamation-triangle text-4xl mb-2"></i>
+                    <p>Failed to load spotlight data</p>
+                </div>
+            </div>
+        `;
+    }
+  }
+
+  /**
+   * Render carousel spotlight dengan desain responsif
+   * @param {Object} data - Data dari API animeinfo
+   */
+  renderSpotlightCarousel(data) {
+    // Sembunyikan loading, tampilkan carousel
+    document.getElementById('spotlight-loading').classList.add('hidden');
+    document.getElementById('spotlight-carousel').classList.remove('hidden');
+
+    const itemsContainer = document.getElementById('spotlight-items');
+    const dotsContainer = document.getElementById('spotlight-dots');
+
+    // Clear previous content
+    itemsContainer.innerHTML = '';
+    dotsContainer.innerHTML = '';
+
+    // Periksa jika ada data
+    if (!data || !data.response || !data.response.entries || data.response.entries.length === 0) {
+      itemsContainer.innerHTML = `
+      <div class="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
+        <div class="text-center p-4">
+          <i class="fas fa-film text-4xl mb-2"></i>
+          <p>No spotlight anime available</p>
+        </div>
+      </div>
+    `;
+      return;
+    }
+
+    const animeEntries = data.response.entries;
+    let currentIndex = 0;
+
+    // Create carousel items
+    animeEntries.forEach((animeData, index) => {
+      // Extract data dari categories
+      const categories = animeData.categories || [];
+      const score = this.extractCategory(categories, 'rate');
+      const status = this.extractCategory(categories, 'status');
+
+      // Extract genres
+      const genres = categories.filter(cat =>
+        !cat.includes(':') &&
+        !['page', 'mal_id', 'rate', 'status', 'type', 'season'].includes(cat.toLowerCase())
+      ).slice(0, 3); // Limit to 3 genres
+
+      // Extract image dari content
+      const imageUrl = this.extractCoverImage(animeData.content);
+
+      // Create carousel item
+      const item = document.createElement('div');
+      item.className = `absolute inset-0 transition-opacity duration-500 ${index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0'}`;
+      item.dataset.index = index;
+
+      item.innerHTML = `
+      <!-- Backdrop Cover dengan efek blur -->
+      <div class="absolute inset-0 z-0">
+        <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('${imageUrl || ''}'); filter: blur(10px); transform: scale(1.1);"></div>
+        <div class="absolute inset-0 bg-black/60"></div>
+      </div>
+      
+      <!-- Content -->
+      <div class="relative z-10 h-full flex flex-col md:flex-row spotlight-content">
+        <!-- Thumbnail -->
+        <div class="w-full md:w-2/5 flex items-center justify-center p-2 md:p-4 lg:p-8 spotlight-thumbnail">
+          <div class="w-32 h-44 md:w-56 md:h-auto lg:h-80 rounded-xl overflow-hidden shadow-2xl">
+            <img src="${imageUrl || ''}" alt="${animeData.title || 'Anime'}" class="w-full h-full md:h-auto lg:h-full object-cover" loading="lazy">
+          </div>
+        </div>
+        
+        <!-- Info -->
+        <div class="w-full md:w-3/5 flex items-center text-white p-2 md:p-4 lg:p-8 spotlight-info">
+          <div class="max-w-2xl m-auto md:m-0">
+            <h3 class="text-base md:text-xl lg:text-4xl font-bold mb-2 md:mb-4 line-clamp-2">${animeData.title || 'No Title'}</h3>
+            
+            ${score ? `
+            <div class="hidden md:flex items-center mb-3 md:mb-4">
+              <span class="text-yellow-400 text-base md:text-lg lg:text-xl mr-2">⭐</span>
+              <span class="text-lg md:text-xl font-semibold">${score}</span>
+            </div>
+            ` : ''}
+            
+            <div class="hidden md:flex flex-wrap items-center gap-2 md:gap-3 mb-4 md:mb-6">
+              ${status ? `
+              <span class="px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${this.getStatusColorClass(status)}">
+                ${this.formatStatus(status)}
+              </span>
+              ` : ''}
+            </div>
+            
+            ${genres.length > 0 ? `
+            <div class="flex flex-wrap gap-1 md:gap-2 mb-4 md:mb-6 spotlight-genres">
+              ${genres.map(genre => `
+                <span class="px-2 md:px-3 py-1 bg-white/20 text-white text-xs md:text-sm rounded-full backdrop-blur-sm">
+                  ${genre}
+                </span>
+              `).join('')}
+            </div>
+            ` : ''}
+            
+            <p class="hidden lg:block text-white/80 mb-4 md:mb-8 line-clamp-3 text-sm md:text-base">
+              ${animeData.description || 'Description not available in the API response. This would typically contain a summary of the anime plot and story.'}
+            </p>
+            
+            <a href="${animeData.path || '#'}" class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-base md:text-lg font-medium">
+              <i class="fas fa-play mr-2"></i> Watch Now
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+
+      itemsContainer.appendChild(item);
+
+      // Create dot indicator
+      const dot = document.createElement('button');
+      dot.className = `w-2 h-2 md:w-3 md:h-3 rounded-full transition-all ${index === 0 ? 'bg-white' : 'bg-white/50'}`;
+      dot.dataset.index = index;
+      dot.addEventListener('click', () => this.showSpotlightSlide(index));
+      dotsContainer.appendChild(dot);
+    });
+
+    // Setup navigation
+    this.setupSpotlightNavigation(animeEntries.length);
+
+    // Add touch events for mobile
+    this.setupTouchEvents();
+  }
+
+  /**
+   * Setup touch events for mobile swipe
+   */
+  setupTouchEvents() {
+    const carousel = document.getElementById('spotlight-carousel');
+    let startX = 0;
+    let endX = 0;
+
+    carousel.addEventListener('touchstart', (e) => {
+      startX = e.touches[0].clientX;
+    }, false);
+
+    carousel.addEventListener('touchend', (e) => {
+      endX = e.changedTouches[0].clientX;
+      this.handleSwipe(startX, endX);
+    }, false);
+  }
+
+  /**
+   * Handle swipe gestures for mobile
+   * @param {number} startX - Touch start position
+   * @param {number} endX - Touch end position
+   */
+  handleSwipe(startX, endX) {
+    const threshold = 50; // Minimum swipe distance
+
+    if (startX - endX > threshold) {
+      // Swipe left - next slide
+      document.getElementById('spotlight-next').click();
+    } else if (endX - startX > threshold) {
+      // Swipe right - previous slide
+      document.getElementById('spotlight-prev').click();
+    }
+  }
+
+  /**
+   * Setup navigation untuk carousel
+   * @param {number} totalSlides - Jumlah total slide
+   */
+  setupSpotlightNavigation(totalSlides) {
+    let currentIndex = 0;
+
+    // Previous button
+    document.getElementById('spotlight-prev').addEventListener('click', () => {
+      currentIndex = (currentIndex - 1 + totalSlides) % totalSlides;
+      this.showSpotlightSlide(currentIndex);
+    });
+
+    // Next button
+    document.getElementById('spotlight-next').addEventListener('click', () => {
+      currentIndex = (currentIndex + 1) % totalSlides;
+      this.showSpotlightSlide(currentIndex);
+    });
+
+    // Auto-advance slides
+    let slideInterval = setInterval(() => {
+      currentIndex = (currentIndex + 1) % totalSlides;
+      this.showSpotlightSlide(currentIndex);
+    }, 5000); // Change slide every 5 seconds
+
+    // Pause on hover
+    const carousel = document.getElementById('spotlight-carousel');
+    carousel.addEventListener('mouseenter', () => clearInterval(slideInterval));
+    carousel.addEventListener('mouseleave', () => {
+      slideInterval = setInterval(() => {
+        currentIndex = (currentIndex + 1) % totalSlides;
+        this.showSpotlightSlide(currentIndex);
+      }, 5000);
+    });
+  }
+
+  /**
+   * Tampilkan slide tertentu pada carousel
+   * @param {number} index - Index slide yang akan ditampilkan
+   */
+  showSpotlightSlide(index) {
+    const items = document.querySelectorAll('#spotlight-items > div');
+    const dots = document.querySelectorAll('#spotlight-dots > button');
+
+    items.forEach(item => {
+      item.classList.remove('opacity-100', 'z-10');
+      item.classList.add('opacity-0', 'z-0');
+    });
+
+    dots.forEach(dot => {
+      dot.classList.remove('bg-white');
+      dot.classList.add('bg-white/50');
+    });
+
+    items[index].classList.remove('opacity-0', 'z-0');
+    items[index].classList.add('opacity-100', 'z-10');
+
+    dots[index].classList.remove('bg-white/50');
+    dots[index].classList.add('bg-white');
+  }
+
+  /**
+   * Dapatkan class warna berdasarkan status
+   * @param {string} status - Status anime
+   * @returns {string} Class CSS untuk warna
+   */
+  getStatusColorClass(status) {
+    const statusClasses = {
+      'ongoing': 'bg-blue-500/90',
+      'completed': 'bg-green-500/90',
+      'upcoming': 'bg-yellow-500/90'
+    };
+
+    return statusClasses[status] || 'bg-gray-500/90';
   }
 
   /**
@@ -438,12 +737,9 @@ class FetchProgress {
    */
   showLoading() {
     try {
-      const { PROGRESS_CONTAINER, SKELETON_CONTAINER } = FetchProgress.SELECTORS;
+      const { PROGRESS_CONTAINER } = FetchProgress.SELECTORS;
       const progressContainer = document.querySelector(PROGRESS_CONTAINER);
-      const skeletonContainer = document.querySelector(SKELETON_CONTAINER);
-
       if (progressContainer) progressContainer.classList.remove('hidden');
-      if (skeletonContainer) skeletonContainer.classList.remove('hidden');
     } catch (error) {
       console.warn('Error showing loading indicators:', error);
     }
@@ -455,15 +751,38 @@ class FetchProgress {
    */
   hideLoading() {
     try {
-      const { PROGRESS_CONTAINER, SKELETON_CONTAINER } = FetchProgress.SELECTORS;
+      const { PROGRESS_CONTAINER } = FetchProgress.SELECTORS;
       const progressContainer = document.querySelector(PROGRESS_CONTAINER);
-      const skeletonContainer = document.querySelector(SKELETON_CONTAINER);
-
       if (progressContainer) progressContainer.classList.add('hidden');
-      if (skeletonContainer) skeletonContainer.classList.add('hidden');
     } catch (error) {
       console.warn('Error hiding loading indicators:', error);
     }
+  }
+
+  /**
+   * Format status untuk ditampilkan
+   * @param {string} status - Status dari API
+   * @returns {string} Status yang diformat
+   */
+  formatStatus(status) {
+    const statusMap = {
+      'ongoing': 'Ongoing',
+      'completed': 'Completed',
+      'upcoming': 'Upcoming'
+    };
+
+    return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  /**
+   * Buka modal untuk menambahkan anime ke list
+   * @param {Object} animeData - Data anime
+   */
+  openAddToListModal(animeData) {
+    // Implementasi modal untuk memilih status (Watching, Completed, etc.)
+    console.log('Open add to list modal for:', animeData);
+    // Di sini Anda bisa implementasikan modal untuk memilih status
+    alert(`Add "${animeData.title}" to your list feature would be implemented here`);
   }
 
   /**
@@ -539,7 +858,6 @@ class FetchProgress {
    */
   async fetchWithProgress(progressCallback) {
     this.setupAbortController();
-    this.showLoading();
 
     try {
       const response = await fetch(this.apiUrl, {
@@ -926,34 +1244,32 @@ class FetchProgress {
    * @async
    * @param {boolean} isLoadMore - Whether this is a load more operation
    */
-  /**
-  * Executes the fetch and render process
-  * @async
-  * @param {boolean} isLoadMore - Whether this is a load more operation
-  */
   async execute(isLoadMore = false) {
     if (this.isLoading || this.activeTab !== 'api') return;
-
     this.isLoading = true;
 
-    // Show loading state on load more button if it's a load more operation
+    // --- PERUBAHAN DI SINI ---
+    // Tampilkan UI loading yang sesuai
     if (isLoadMore) {
       this.showLoadMoreLoading();
+    } else {
+      // Untuk pemuatan awal, tampilkan progress bar dan skeleton dinamis
+      this.showLoading();
+      this.showInitialSkeleton();
     }
+    // --- AKHIR PERUBAHAN ---
 
     try {
       this.apiUrl = this.buildApiUrl(this.endpoint, this.baseParams);
+      // Hapus pemanggilan this.showLoading() dari fetchWithProgress jika ada
       const data = await this.fetchWithProgress(this.updateProgress.bind(this));
       this.renderContent(data, isLoadMore);
     } catch (error) {
-      // Don't show error if the request was aborted
       if (error.name === 'AbortError') {
         console.log('Request was aborted');
         return;
       }
-
       console.error('Fetch error:', error);
-
       let errorMessage = FetchProgress.ERROR_MESSAGES.FETCH_ERROR;
       let errorDetails = error.message;
 
@@ -962,18 +1278,15 @@ class FetchProgress {
         errorDetails = 'Please check your internet connection and try again.';
       }
 
-      // Only show error if it's not a load more operation
       if (!isLoadMore) {
         this.renderError(errorMessage, errorDetails);
       } else {
-        // For load more errors, revert the offset
         this.currentOffset -= FetchProgress.CONFIG.ITEMS_PER_PAGE;
       }
     } finally {
       this.isLoading = false;
+      // hideLoading() sekarang hanya menyembunyikan progress bar
       this.hideLoading();
-
-      // Only update load more button for API tab
       if (this.activeTab === 'api') {
         this.updateLoadMoreButton();
       }
@@ -1023,10 +1336,15 @@ class FetchProgress {
   }
 }
 
-// Usage Example
+// Inisialisasi spotlight carousel
+const spotlightLoader = new FetchProgress('/anime', {
+  page: 'animeinfo'
+});
+spotlightLoader.loadSpotlightData();
+
+// Juga inisialisasi fetcher untuk konten utama
 const fetcher = new FetchProgress('/anime', {
-  page: 'episode',
-  // Add other parameters as needed
+  page: 'episode'
 });
 fetcher.execute();
 
