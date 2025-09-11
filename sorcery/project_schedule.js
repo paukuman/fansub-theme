@@ -264,7 +264,7 @@ class ScheduleManager {
       const status = anime.categories.find(cat => cat.startsWith('status:'))?.split(':')[1] || 'unknown';
 
       return `
-        <div class="schedule-item glass rounded-lg p-4 hover:shadow-lg transition-all" style="animation-delay: ${index * 0.1}s">
+        <div class="schedule-item py-4 hover:shadow-lg transition-all" style="animation-delay: ${index * 0.1}s">
           <div class="flex items-start space-x-3">
             ${imageUrl ? `
               <div class="flex-shrink-0 w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
