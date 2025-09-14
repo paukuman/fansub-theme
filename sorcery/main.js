@@ -50,12 +50,14 @@ class FetchProgress {
    * @constructor
    * @param {string} endpoint - API endpoint path (without base URL)
    * @param {Object} [params={}] - Additional query parameters
+   * @param {boolean} [isSpotlight=false] - Whether this is for spotlight carousel
    * @throws {Error} If essential elements are missing from DOM
    */
-  constructor(endpoint, params = {}) {
+  constructor(endpoint, params = {}, isSpotlight = false) {
     this.blogID = this.getBlogID();
     this.endpoint = endpoint;
     this.baseParams = params;
+    this.isSpotlight = isSpotlight; // Flag untuk membedakan spotlight dari konten utama
     this.currentOffset = 1;
     this.hasMore = true;
     this.isLoading = false;
@@ -68,14 +70,12 @@ class FetchProgress {
     // Validate essential DOM elements exist
     this.validateDOM();
 
-    // Initialize load more button
-    this.initLoadMoreButton();
-
-    // Initialize tabs for bookmark and list
-    this.initTabs();
-
-    // Load data from localStorage jika ada
-    this.loadLocalData();
+    // Initialize load more button (hanya untuk konten utama)
+    if (!this.isSpotlight) {
+      this.initLoadMoreButton();
+      this.initTabs();
+      this.loadLocalData();
+    }
   }
 
   /**
@@ -243,7 +243,6 @@ class FetchProgress {
       loadMoreContainer.classList.add('hidden');
     }
   }
-  // Tambahkan method baru ini di dalam class FetchProgress
 
   /**
    * Shows initial loading skeleton inside the content container
@@ -268,6 +267,7 @@ class FetchProgress {
     // Ulangi skeleton sebanyak item per halaman
     container.innerHTML = skeletonItemHTML.repeat(FetchProgress.CONFIG.ITEMS_PER_PAGE);
   }
+
   /**
    * Buat elemen anime untuk bookmark/list
    * @param {Object} anime - Data anime
@@ -339,8 +339,6 @@ class FetchProgress {
 
     return statusClasses[status] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
   }
-
-  // Di dalam class FetchProgress, tambahkan method berikut:
 
   /**
    * Memuat data spotlight anime untuk carousel
@@ -662,6 +660,9 @@ class FetchProgress {
    * @throws {Error} If content container is missing
    */
   validateDOM() {
+    // Untuk spotlight, tidak perlu content container
+    if (this.isSpotlight) return;
+    
     const contentContainer = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
     if (!contentContainer) {
       throw new Error(FetchProgress.ERROR_MESSAGES.NO_CONTENT_CONTAINER);
@@ -713,9 +714,11 @@ class FetchProgress {
         url.searchParams.set('blogID', this.blogID);
       }
 
-      // Add pagination parameters
-      url.searchParams.set('limit', FetchProgress.CONFIG.ITEMS_PER_PAGE.toString());
-      url.searchParams.set('offset', this.currentOffset.toString());
+      // Add pagination parameters (hanya untuk konten utama)
+      if (!this.isSpotlight) {
+        url.searchParams.set('limit', FetchProgress.CONFIG.ITEMS_PER_PAGE.toString());
+        url.searchParams.set('offset', this.currentOffset.toString());
+      }
 
       // Add additional parameters
       Object.entries(params).forEach(([key, value]) => {
@@ -757,32 +760,6 @@ class FetchProgress {
     } catch (error) {
       console.warn('Error hiding loading indicators:', error);
     }
-  }
-
-  /**
-   * Format status untuk ditampilkan
-   * @param {string} status - Status dari API
-   * @returns {string} Status yang diformat
-   */
-  formatStatus(status) {
-    const statusMap = {
-      'ongoing': 'Ongoing',
-      'completed': 'Completed',
-      'upcoming': 'Upcoming'
-    };
-
-    return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1);
-  }
-
-  /**
-   * Buka modal untuk menambahkan anime ke list
-   * @param {Object} animeData - Data anime
-   */
-  openAddToListModal(animeData) {
-    // Implementasi modal untuk memilih status (Watching, Completed, etc.)
-    console.log('Open add to list modal for:', animeData);
-    // Di sini Anda bisa implementasikan modal untuk memilih status
-    alert(`Add "${animeData.title}" to your list feature would be implemented here`);
   }
 
   /**
@@ -1176,6 +1153,12 @@ class FetchProgress {
    * @param {boolean} isLoadMore - Whether this is a load more operation
    */
   renderContent(data, isLoadMore = false) {
+    // Untuk spotlight, render dengan cara yang berbeda
+    if (this.isSpotlight) {
+      this.renderSpotlightCarousel(data);
+      return;
+    }
+
     const container = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
     if (!container) {
       console.error(FetchProgress.ERROR_MESSAGES.NO_CONTENT_CONTAINER);
@@ -1245,23 +1228,25 @@ class FetchProgress {
    * @param {boolean} isLoadMore - Whether this is a load more operation
    */
   async execute(isLoadMore = false) {
-    if (this.isLoading || this.activeTab !== 'api') return;
+    // Jangan eksekusi jika ini spotlight atau tab bukan API
+    if (this.isLoading || (this.isSpotlight && this.activeTab !== 'api')) return;
+    
+    // Untuk konten utama, pastikan hanya eksekusi di tab API
+    if (!this.isSpotlight && this.activeTab !== 'api') return;
+    
     this.isLoading = true;
 
-    // --- PERUBAHAN DI SINI ---
     // Tampilkan UI loading yang sesuai
     if (isLoadMore) {
       this.showLoadMoreLoading();
-    } else {
+    } else if (!this.isSpotlight) {
       // Untuk pemuatan awal, tampilkan progress bar dan skeleton dinamis
       this.showLoading();
       this.showInitialSkeleton();
     }
-    // --- AKHIR PERUBAHAN ---
 
     try {
       this.apiUrl = this.buildApiUrl(this.endpoint, this.baseParams);
-      // Hapus pemanggilan this.showLoading() dari fetchWithProgress jika ada
       const data = await this.fetchWithProgress(this.updateProgress.bind(this));
       this.renderContent(data, isLoadMore);
     } catch (error) {
@@ -1278,39 +1263,17 @@ class FetchProgress {
         errorDetails = 'Please check your internet connection and try again.';
       }
 
-      if (!isLoadMore) {
+      if (!isLoadMore && !this.isSpotlight) {
         this.renderError(errorMessage, errorDetails);
-      } else {
+      } else if (!this.isSpotlight) {
         this.currentOffset -= FetchProgress.CONFIG.ITEMS_PER_PAGE;
       }
     } finally {
       this.isLoading = false;
       // hideLoading() sekarang hanya menyembunyikan progress bar
       this.hideLoading();
-      if (this.activeTab === 'api') {
+      if (!this.isSpotlight && this.activeTab === 'api') {
         this.updateLoadMoreButton();
-      }
-    }
-  }
-
-  /**
-   * Shows or hides the load more button based on hasMore state
-   * @private
-   */
-  updateLoadMoreButton() {
-    // Only update for API tab
-    if (this.activeTab !== 'api') return;
-
-    const loadMoreContainer = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_CONTAINER);
-    const loadMoreButton = document.querySelector(FetchProgress.SELECTORS.LOAD_MORE_BUTTON);
-
-    if (loadMoreContainer && loadMoreButton) {
-      if (this.hasMore) {
-        loadMoreContainer.classList.remove('hidden');
-        loadMoreButton.disabled = false;
-        loadMoreButton.textContent = 'Load More';
-      } else {
-        loadMoreContainer.classList.add('hidden');
       }
     }
   }
@@ -1336,20 +1299,20 @@ class FetchProgress {
   }
 }
 
-// Inisialisasi spotlight carousel
+// Inisialisasi spotlight carousel dengan parameter yang benar
 const spotlightLoader = new FetchProgress('/anime', {
-  page: 'animeinfo'
-});
-spotlightLoader.loadSpotlightData();
+  page: 'animeinfo',
+  limit: 5,
+  offset: 0
+}, true); // Parameter ketiga true menandakan ini adalah spotlight
 
 // Juga inisialisasi fetcher untuk konten utama
 const fetcher = new FetchProgress('/anime', {
   page: 'episode'
-});
+}); // Tanpa parameter ketiga, berarti ini konten utama
+
+// Load data spotlight
+spotlightLoader.loadSpotlightData();
+
+// Load data konten utama
 fetcher.execute();
-
-// To abort when needed (e.g., page navigation)
-// window.addEventListener('beforeunload', () => fetcher.abort());
-
-// To reset and load from the beginning
-// fetcher.reset();

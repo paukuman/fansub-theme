@@ -143,7 +143,9 @@ class FeedCategoriesParser {
         seasons: [],
         rates: [],
         malIds: [],
-        episodes: []
+        episodes: [],
+        scheduled: [],
+        scheduled_time: []
       };
     }
 
@@ -156,7 +158,9 @@ class FeedCategoriesParser {
       seasons: [],
       rates: [],
       malIds: [],
-      episodes: []
+      episodes: [],
+      scheduled: [],
+      scheduled_time: []
     };
 
     feedCategories.forEach(category => {
@@ -177,6 +181,12 @@ class FeedCategoriesParser {
             break;
           case 'quality':
             result.qualities.push(value);
+            break;
+          case 'scheduled':
+            result.scheduled.push(value);
+            break;
+          case 'scheduled_time':
+            result.scheduled_time.push(value);
             break;
           case 'resolution':
             // Handle multiple resolutions separated by |
@@ -545,7 +555,9 @@ class AnimeSeries {
       !cat.startsWith('type:') &&
       !cat.startsWith('episode:') &&
       !cat.startsWith('quality:') &&
-      !cat.startsWith('resolution:')
+      !cat.startsWith('resolution:') &&
+      !cat.startsWith('scheduled:') &&
+      !cat.startsWith('scheduled_time:')
     );
   }
 

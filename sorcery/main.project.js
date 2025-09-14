@@ -155,7 +155,7 @@ class ProjectStatusManager {
    * @private
    */
   renderDashboard() {
-    const dashboardContainer = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-3.gap-6.mb-8');
+    const dashboardContainer = document.querySelector('#project_status');
     
     if (!dashboardContainer) {
       console.error('Dashboard container not found');
