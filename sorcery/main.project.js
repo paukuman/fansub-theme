@@ -174,16 +174,16 @@ class ProjectStatusManager {
       const progressPercent = totalProjects > 0 ? Math.round((count / totalProjects) * 100) : 0;
       
       const card = document.createElement('div');
-      card.className = 'glass rounded-xl p-6 hover:shadow-lg transition-shadow cursor-pointer';
+      card.className = 'glass rounded-lg p-3 md:p-4 hover:shadow transition-shadow cursor-pointer';
       card.setAttribute('onclick', `projectStatusManager.openModal('${status}')`);
       
       card.innerHTML = `
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-lg">${config.title}</h3>
+        <div class="flex items-center justify-between mb-1 md:mb-2">
+          <h3 class="font-medium text-sm md:text-base">${config.title}</h3>
           <i class="${config.icon} ${config.color} text-xl ${status === 'ongoing' ? 'animate-spin' : ''}"></i>
         </div>
-        <p class="text-gray-600 dark:text-gray-300 mb-2">${count} ${status === 'ongoing' ? 'Active' : status === 'completed' ? 'Finished' : 'On Hold'} Projects</p>
-        <div class="h-2 bg-primary-100 dark:bg-primary-800 rounded-full">
+        <p class="text-gray-600 dark:text-gray-300 text-xs md:text-sm mb-1">${count} ${status === 'ongoing' ? 'Active' : status === 'completed' ? 'Finished' : 'On Hold'} Projects</p>
+        <div class="h-1 md:h-1.5 bg-primary-100 dark:bg-primary-800 rounded-full">
           <div class="h-2 ${config.progressColor} rounded-full" style="width: ${progressPercent}%"></div>
         </div>
       `;
