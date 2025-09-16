@@ -276,6 +276,7 @@ class AnimeInfo {
     if (this.isBookmarked) {
       bookmarks[this.malID] = {
         id: this.malID,
+        path: this.animeData.path,
         title: this.animeData.title_english || this.animeData.title,
         image: this.animeData.images?.jpg?.large_image_url,
         addedAt: new Date().toISOString()
@@ -301,6 +302,7 @@ class AnimeInfo {
     if (this.isInList) {
       list[this.malID] = {
         id: this.malID,
+        path: this.animeData.path,
         title: this.animeData.title_english || this.animeData.title,
         image: this.animeData.images?.jpg?.large_image_url,
         addedAt: new Date().toISOString(),
