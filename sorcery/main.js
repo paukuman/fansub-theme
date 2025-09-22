@@ -280,28 +280,28 @@ class FetchProgress {
       const addedDate = new Date(anime.addedAt).toLocaleDateString();
 
       const html = `
-        <div class="flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors">
-          <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden max-[374px]:hidden">
-            <img src="${this.escapeHTML(anime.image)}" alt="${this.escapeHTML(anime.title)}" class="w-full h-full object-cover" loading="lazy">
-          </div>
-          <div class="flex-1">
-            <div class="flex justify-between items-start">
-              <div>
-                <h4 class="font-medium line-clamp-2">${this.escapeHTML(anime.title)}</h4>
-                <div class="flex gap-2 mt-1">
-                  ${showStatus ? `<span class="text-xs ${statusClass} px-2 py-1 rounded">${this.escapeHTML(this.formatStatus(anime.status))}</span>` : ''}
-                  <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Added: ${addedDate}</span>
-                </div>
+      <a href="${this.escapeHTML(anime.path)}" class="flex gap-4 p-3 hover:bg-primary-50 dark:hover:bg-primary-800 rounded-lg transition-colors cursor-pointer anime-item">
+        <div class="w-16 h-16 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+          <img src="${this.escapeHTML(anime.image)}" alt="${this.escapeHTML(anime.title)}" class="w-full h-full object-cover" loading="lazy">
+        </div>
+        <div class="flex-1">
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-medium line-clamp-2">${this.escapeHTML(anime.title)}</h4>
+              <div class="flex gap-2 mt-1">
+                ${showStatus ? `<span class="text-xs ${statusClass} px-2 py-1 rounded">${this.escapeHTML(this.formatStatus(anime.status))}</span>` : ''}
+                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded">Added: ${addedDate}</span>
               </div>
             </div>
-            <div class="mt-2 flex gap-2">
-              <button class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded remove-bookmark" data-id="${anime.id}" data-type="${showStatus ? 'list' : 'bookmark'}">
-                Remove
-              </button>
-            </div>
+          </div>
+          <div class="mt-2 flex gap-2">
+            <button class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded remove-bookmark" data-id="${anime.id}" data-type="${showStatus ? 'list' : 'bookmark'}">
+              Remove
+            </button>
           </div>
         </div>
-      `;
+      </a>
+    `;
 
       const element = this.createElementFromHTML(html);
 
@@ -310,6 +310,7 @@ class FetchProgress {
         const removeBtn = element.querySelector('.remove-bookmark');
         if (removeBtn) {
           removeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             this.removeFromStorage(anime.id, showStatus ? 'list' : 'bookmark');
           });
@@ -662,7 +663,7 @@ class FetchProgress {
   validateDOM() {
     // Untuk spotlight, tidak perlu content container
     if (this.isSpotlight) return;
-    
+
     const contentContainer = document.querySelector(FetchProgress.SELECTORS.CONTENT_CONTAINER);
     if (!contentContainer) {
       throw new Error(FetchProgress.ERROR_MESSAGES.NO_CONTENT_CONTAINER);
@@ -1230,10 +1231,10 @@ class FetchProgress {
   async execute(isLoadMore = false) {
     // Jangan eksekusi jika ini spotlight atau tab bukan API
     if (this.isLoading || (this.isSpotlight && this.activeTab !== 'api')) return;
-    
+
     // Untuk konten utama, pastikan hanya eksekusi di tab API
     if (!this.isSpotlight && this.activeTab !== 'api') return;
-    
+
     this.isLoading = true;
 
     // Tampilkan UI loading yang sesuai
